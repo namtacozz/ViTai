@@ -18,7 +18,7 @@ from vitai.capture import get_selected_text
 from vitai.config import AppConfig, default_config_path, load_config, save_config
 from vitai.encoding import configure_utf8_stdio
 from vitai.hotkey import HotkeyManager
-from vitai.llm import AnthropicProxyClient
+
 from vitai.logging_config import configure_logging
 from vitai.mcq import is_mcq, normalize_mcq_answer
 from vitai.overlay import AnswerOverlay
