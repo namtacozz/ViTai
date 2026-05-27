@@ -8,7 +8,7 @@ import threading
 import traceback
 from dataclasses import replace
 
-from dotenv import load_dotenv
+from pathlib import Path
 from pynput import mouse
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon
@@ -23,6 +23,7 @@ from vitai.logging_config import configure_logging
 from vitai.mcq import is_mcq, normalize_mcq_answer
 from vitai.overlay import AnswerOverlay
 from vitai.resources import resource_path
+from dotenv import load_dotenv
 
 configure_utf8_stdio()
 
@@ -40,7 +41,13 @@ class UiBridge(QObject):
 
 class ViTaiApp:
     def __init__(self):
-        load_dotenv()
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+        else:
+            base_dir = Path(os.getcwd())
+        env_path = base_dir / ".env"
+        load_dotenv(dotenv_path=env_path)
+        
         configure_logging()
         self.logger = logging.getLogger(__name__)
         self._install_exception_hooks()

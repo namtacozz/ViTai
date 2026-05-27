@@ -11,7 +11,8 @@
       "Bash(python scripts/build_windows.py)",
       "Skill(claude-api)",
       "Skill(claude-api:*)",
-      "Bash(python -m PyInstaller --noconfirm --clean --windowed --name ViTai --distpath dist_logo --workpath build_logo --icon assets/icon.ico --add-data \"assets/icon.ico;assets\" --paths src src/vitai/main.py)"
+      "Bash(python -m PyInstaller --noconfirm --clean --windowed --name ViTai --distpath dist_logo --workpath build_logo --icon assets/icon.ico --add-data \"assets/icon.ico;assets\" --paths src src/vitai/main.py)",
+      "Bash(git fetch *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Vit\\.claude"

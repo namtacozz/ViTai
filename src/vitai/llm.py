@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from anthropic import Anthropic
+from vitai.rag import get_rag_context
 
 GENERAL_SYSTEM_PROMPT = """Chỉ đưa ra câu trả lời trực tiếp ngắn gọn nhất có thể, đi thẳng vào đáp án. KHÔNG giải thích, KHÔNG chào hỏi, KHÔNG dài dòng."""
 
@@ -9,12 +10,15 @@ CHỈ trả về DUY NHẤT một ký tự đáp án (A, B, C, D, ...).
 KHÔNG giải thích. KHÔNG thêm bất kỳ text nào khác."""
 
 
-def system_prompt_for(is_mcq: bool) -> str:
-    return MCQ_SYSTEM_PROMPT if is_mcq else GENERAL_SYSTEM_PROMPT
+def system_prompt_for(is_mcq: bool, context: str = "") -> str:
+    base = MCQ_SYSTEM_PROMPT if is_mcq else GENERAL_SYSTEM_PROMPT
+    if context:
+        base += f"\n\nDưới đây là tài liệu tham khảo có thể chứa thông tin liên quan tới câu hỏi. Hãy dựa vào tài liệu này để đưa ra đáp án chính xác nhất:\n\n{context}"
+    return base
 
 
-def build_prompt(question: str, is_mcq: bool) -> str:
-    return f"System: {system_prompt_for(is_mcq)}\n\nUser: {question.strip()}"
+def build_prompt(question: str, is_mcq: bool, context: str = "") -> str:
+    return f"System: {system_prompt_for(is_mcq, context)}\n\nUser: {question.strip()}"
 
 
 def extract_text(response) -> str:
@@ -42,10 +46,11 @@ class AnthropicProxyClient:
         self._model = model
 
     def ask(self, question: str, is_mcq: bool) -> str:
+        context = get_rag_context(question)
         response = self._client.messages.create(
             model=self._model,
             max_tokens=150,
-            system=system_prompt_for(is_mcq),
+            system=system_prompt_for(is_mcq, context),
             messages=[{"role": "user", "content": question.strip()}],
         )
         return extract_text(response)

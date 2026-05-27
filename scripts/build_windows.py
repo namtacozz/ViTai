@@ -28,7 +28,22 @@ def main() -> int:
         str(root / "src"),
         str(root / "src" / "vitai" / "main.py"),
     ])
-    return subprocess.call(command, cwd=root)
+    ret = subprocess.call(command, cwd=root)
+    if ret == 0:
+        import shutil
+        src_docs = root / "docs"
+        dist_docs = root / "dist" / "ViTai" / "docs"
+        if src_docs.exists():
+            if dist_docs.exists():
+                shutil.rmtree(dist_docs)
+            shutil.copytree(src_docs, dist_docs)
+            
+        env_example = root / ".env.example"
+        dist_env = root / "dist" / "ViTai" / ".env"
+        if env_example.exists():
+            shutil.copy2(env_example, dist_env)
+            
+    return ret
 
 
 if __name__ == "__main__":
