@@ -7,8 +7,9 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class AppConfig:
-    anthropic_auth_token: str = ""
-    anthropic_base_url: str = "http://127.0.0.1:20128/v1"
+    provider: str = "anthropic"
+    api_key: str = ""
+    base_url: str = "http://127.0.0.1:20128/v1"
     model: str = "High"
     hotkey_modifier: str = "alt"
     hotkey_key: str = "q"
@@ -26,12 +27,10 @@ def load_config(path: Path | None = None) -> AppConfig:
         return AppConfig()
 
     data = json.loads(config_path.read_text(encoding="utf-8"))
-    if "gemini_api_key" in data and "anthropic_auth_token" not in data:
-        data["anthropic_auth_token"] = ""
-    if "openai_api_key" in data and "anthropic_auth_token" not in data:
-        data["anthropic_auth_token"] = ""
-    if data.get("model") in {"gemini-2.0-flash", "gpt-4.1-mini"}:
-        data["model"] = AppConfig.model
+    if "anthropic_auth_token" in data and "api_key" not in data:
+        data["api_key"] = data["anthropic_auth_token"]
+    if "anthropic_base_url" in data and "base_url" not in data:
+        data["base_url"] = data["anthropic_base_url"]
     defaults = asdict(AppConfig())
     defaults.update({key: value for key, value in data.items() if key in defaults})
     return AppConfig(**defaults)

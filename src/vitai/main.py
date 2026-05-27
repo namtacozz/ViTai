@@ -82,15 +82,36 @@ class ViTaiApp:
 
     def _load_config_with_env(self) -> AppConfig:
         config = load_config(self.config_path)
-        auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN", "").strip()
-        base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip()
-        model = os.getenv("ANTHROPIC_DEFAULT_SONNET_MODEL", "").strip()
-        if auth_token and not config.anthropic_auth_token:
-            config = replace(config, anthropic_auth_token=auth_token)
-        if base_url:
-            config = replace(config, anthropic_base_url=base_url)
-        if model:
-            config = replace(config, model=model)
+        
+        provider = os.getenv("PROVIDER", config.provider).strip().lower()
+        if provider == "anthropic":
+            api_key = os.getenv("ANTHROPIC_API_KEY", config.api_key).strip()
+            base_url = os.getenv("ANTHROPIC_BASE_URL", config.base_url).strip()
+            model = os.getenv("ANTHROPIC_MODEL", config.model).strip()
+        elif provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY", "").strip()
+            base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+            model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+        elif provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY", "").strip()
+            base_url = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").strip()
+            model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+        elif provider == "deepseek":
+            api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
+            model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+        else:
+            api_key = config.api_key
+            base_url = config.base_url
+            model = config.model
+
+        config = replace(
+            config, 
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+            model=model
+        )
         return config
 
     def _install_exception_hooks(self) -> None:
@@ -156,14 +177,16 @@ class ViTaiApp:
 
             self.bridge.answer_ready.emit("...")
 
-            if not self.config.anthropic_auth_token:
-                self.bridge.answer_ready.emit("Chưa có Anthropic proxy token")
+            if not self.config.api_key:
+                self.bridge.answer_ready.emit("Chưa có API Key")
                 return
 
             question_is_mcq = is_mcq(selected_text)
-            client = AnthropicProxyClient(
-                self.config.anthropic_auth_token,
-                self.config.anthropic_base_url,
+            from vitai.llm import LlmClient
+            client = LlmClient(
+                self.config.provider,
+                self.config.api_key,
+                self.config.base_url,
                 self.config.model,
             )
             answer = client.ask(selected_text, question_is_mcq)
@@ -184,9 +207,9 @@ class ViTaiApp:
             self.overlay.close()
 
     def show_answer(self, text: str, x: int | None = None, y: int | None = None) -> None:
-        if text == "Chưa có Anthropic proxy token":
+        if text == "Chưa có API Key":
             if not self._prompt_for_auth_token():
-                text = "Chưa có Anthropic proxy token"
+                text = "Chưa có API Key"
             else:
                 self.handle_hotkey()
                 return
@@ -200,11 +223,11 @@ class ViTaiApp:
         self.overlay.show_message(text, anchor[0], anchor[1])
 
     def _prompt_for_auth_token(self) -> bool:
-        auth_token, ok = QInputDialog.getText(None, "ViTai", "Nhập ANTHROPIC_AUTH_TOKEN:")
+        auth_token, ok = QInputDialog.getText(None, "ViTai", "Nhập API KEY của bạn:")
         auth_token = auth_token.strip()
         if not ok or not auth_token:
             return False
-        self.config = replace(self.config, anthropic_auth_token=auth_token)
+        self.config = replace(self.config, api_key=auth_token)
         save_config(self.config_path, self.config)
         return True
 
