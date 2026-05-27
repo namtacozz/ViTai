@@ -103,23 +103,40 @@ class LlmClient:
             raise RuntimeError(f"Lỗi API: {str(e)}")
 
     def _extract_anthropic(self, response: dict) -> str:
-        content = response.get("content", [])
-        for block in content:
-            if block.get("type") == "text":
-                return block.get("text", "").strip()
+        # Standard Anthropic format
+        content = response.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    return block.get("text", "").strip()
+        elif isinstance(content, str):
+            return content.strip()
+            
+        # Fallback to OpenAI format (sometimes 9Router uses this)
+        choices = response.get("choices", [])
+        if choices and isinstance(choices, list):
+            message = choices[0].get("message", {})
+            if isinstance(message, dict):
+                return message.get("content", "").strip()
+                
+        # Generic fallback
+        if "text" in response:
+            return str(response["text"]).strip()
+            
         return ""
 
     def _extract_openai(self, response: dict) -> str:
         choices = response.get("choices", [])
-        if choices:
+        if choices and isinstance(choices, list):
             message = choices[0].get("message", {})
-            return message.get("content", "").strip()
+            if isinstance(message, dict):
+                return message.get("content", "").strip()
         return ""
         
     def _extract_gemini(self, response: dict) -> str:
         candidates = response.get("candidates", [])
-        if candidates:
+        if candidates and isinstance(candidates, list):
             parts = candidates[0].get("content", {}).get("parts", [])
-            if parts:
+            if parts and isinstance(parts, list):
                 return parts[0].get("text", "").strip()
         return ""
