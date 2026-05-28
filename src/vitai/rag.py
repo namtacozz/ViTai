@@ -19,18 +19,34 @@ def get_rag_context(query: str, top_k: int = 4) -> str:
     rag_dir = get_rag_dir()
     index_path = rag_dir / "bm25_index.pkl"
     
-    if not index_path.exists():
-        _build_index(rag_dir, index_path)
+    
+    current_pdf_info = {p.name: p.stat().st_size for p in rag_dir.glob("*.pdf")}
     
     if not index_path.exists():
-        return ""
-    
+        _build_index(rag_dir, index_path, current_pdf_info)
+    else:
+        try:
+            with open(index_path, "rb") as f:
+                data = pickle.load(f)
+            # Check if PDFs have changed
+            if data.get("pdf_info") != current_pdf_info:
+                _build_index(rag_dir, index_path, current_pdf_info)
+                with open(index_path, "rb") as f:
+                    data = pickle.load(f)
+        except Exception:
+            # If pickle is corrupted or old format, rebuild
+            _build_index(rag_dir, index_path, current_pdf_info)
+            try:
+                with open(index_path, "rb") as f:
+                    data = pickle.load(f)
+            except Exception:
+                return ""
+
     try:
-        with open(index_path, "rb") as f:
-            data = pickle.load(f)
-            
-        bm25 = data["bm25"]
-        chunks = data["chunks"]
+        bm25 = data.get("bm25")
+        chunks = data.get("chunks", [])
+        if not bm25 or not chunks:
+            return ""
         
         tokenized_query = re.findall(r'\w+', query.lower())
         if not tokenized_query:
@@ -42,10 +58,12 @@ def get_rag_context(query: str, top_k: int = 4) -> str:
         print(f"Error reading RAG index: {e}")
         return ""
 
-def _build_index(rag_dir: Path, index_path: Path) -> None:
+def _build_index(rag_dir: Path, index_path: Path, pdf_info: dict) -> None:
     rag_dir.mkdir(parents=True, exist_ok=True)
     pdf_files = list(rag_dir.glob("*.pdf"))
     if not pdf_files:
+        if index_path.exists():
+            index_path.unlink()
         return
 
     print("Building RAG index. This may take a moment...")
@@ -81,5 +99,9 @@ def _build_index(rag_dir: Path, index_path: Path) -> None:
     bm25 = BM25Okapi(tokenized_chunks)
     
     with open(index_path, "wb") as f:
-        pickle.dump({"bm25": bm25, "chunks": all_chunks}, f)
+        pickle.dump({
+            "bm25": bm25, 
+            "chunks": all_chunks,
+            "pdf_info": pdf_info
+        }, f)
     print("RAG index built successfully.")
