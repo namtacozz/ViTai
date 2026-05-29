@@ -200,7 +200,7 @@ class ViTaiApp:
             return
         if abs(x - start[0]) < 8 and abs(y - start[1]) < 8:
             return
-        self.selection_anchor = (min(start[0], x), min(start[1], y))
+        self.selection_anchor = (x, y)
 
         if self.config.auto_translate:
             # Đợi 150ms để Windows xử lý xong sự kiện nhả chuột rồi mới copy

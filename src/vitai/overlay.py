@@ -99,6 +99,6 @@ class AnswerOverlay(QWidget):
             self.move(self._anchor)
             return
         available = screen.availableGeometry()
-        x = min(max(available.left(), self._anchor.x()), available.right() - self.width())
-        y = min(max(available.top(), self._anchor.y() - self.height() - 10), available.bottom() - self.height())
+        x = min(max(available.left(), self._anchor.x() + 10), available.right() - self.width())
+        y = min(max(available.top(), self._anchor.y() + 15), available.bottom() - self.height())
         self.move(x, y)
