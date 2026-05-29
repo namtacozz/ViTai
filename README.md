@@ -2,7 +2,7 @@
   <img src="assets/icon.ico" width="100" alt="ViTai Logo" />
   
   # ViTai
-  ### Trợ Lý Học Thuật Lơ Lửng (Ghost Mode)
+  ### Floating Academic Assistant (Ghost Mode)
   
   ![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)
   ![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?style=for-the-badge&logo=windows)
@@ -11,62 +11,62 @@
 
 ---
 
-**ViTai** là một ứng dụng System Tray tối giản trên Windows, được thiết kế chuyên biệt để giúp bạn giải đáp các câu hỏi học thuật, trắc nghiệm ngay lập tức. Chỉ cần bôi đen văn bản ở bất kỳ đâu (Trình duyệt, Word, PDF), đáp án sẽ xuất hiện lơ lửng ngay đuôi con trỏ chuột dưới dạng tooltip tinh tế mà không hề làm gián đoạn công việc của bạn.
+**ViTai** is a minimalist System Tray application for Windows, designed specifically to help you instantly solve academic and multiple-choice questions. Simply highlight text anywhere (Browsers, Word, PDF viewers), and the answer will appear as a sleek, floating tooltip right next to your cursor, without interrupting your workflow.
 
-## 🚀 Tính năng nổi bật
+## 🚀 Key Features
 
-- 👻 **Trải nghiệm Tàng hình (Zero-UI):** Đáp án hiển thị dưới dạng văn bản lơ lửng (không viền, không nền đặc), xuất hiện chính xác ngay tại vị trí thả chuột (như một tooltip) và không bao giờ cướp focus của ứng dụng hiện tại.
-- ⚙️ **Giao diện Cài đặt (Settings UI):** Dễ dàng cấu hình ứng dụng bằng cách nhấp chuột phải vào icon ở thanh Taskbar. Hỗ trợ:
-  - Tùy chỉnh Phím tắt (VD: `Alt+Q`, `Ctrl+Shift+E`,...)
-  - Chọn Font chữ, Cỡ chữ, và Nhập mã màu Hex tùy ý (VD: `#212529`, `#ff0000`).
-  - Cài đặt **Khởi động cùng Windows**.
-  - Giao diện Cài đặt tự động đồng bộ theo nền Sáng/Tối (Light/Dark mode) của Windows.
-- ⚡ **Tự Động Bắt Từ & Cache Thông Minh:** Hỗ trợ tính năng tự động gọi AI ngay khi bạn vừa nhả chuột (không cần nhấn phím). Kết hợp với **Bộ nhớ đệm (Cache)**, ViTai sẽ nhớ đáp án cũ và phản hồi tức thì (`0ms`) nếu bạn bôi đen lại câu hỏi đó.
-- 🧠 **Hỗ trợ Đa nền tảng AI (Zero-Dependency):** Hoạt động siêu nhẹ nhờ gọi trực tiếp qua REST API (không dùng SDK cồng kềnh). Hỗ trợ:
+- 👻 **Ghost Mode (Zero-UI):** Answers appear as a floating text overlay (no borders, no solid background) precisely where you release your mouse. It acts like a smart tooltip and never steals focus from your active application.
+- ⚙️ **Settings UI:** Easily configure the application by right-clicking the icon in the System Tray. Features include:
+  - Customizable Hotkeys (e.g., `Alt+Q`, `Ctrl+Shift+E`).
+  - Custom Typography: Change font family, font size, and use custom Hex color codes (e.g., `#212529`, `#ff0000`).
+  - **Start with Windows** integration.
+  - Auto-syncing Light/Dark mode based on your Windows theme preferences.
+- ⚡ **Auto-Translate & Smart Caching:** Enable auto-mode to fetch answers the moment you release the mouse button (no hotkey needed). Combined with built-in **Memory Caching**, ViTai remembers previous answers and responds instantly (`0ms`) if you highlight the same question again.
+- 🧠 **Multi-Provider AI (Zero-Dependency):** Extremely lightweight via direct REST API calls (no bulky SDKs). Supported providers:
   - Gemini (Google)
   - OpenAI (ChatGPT)
   - DeepSeek
-  - Anthropic / Proxy nội bộ (như 9Router)
-- 📚 **Hệ thống RAG Tự Động:** Ném bất kỳ cuốn giáo trình/tài liệu PDF nào vào thư mục `docs/`. ViTai sẽ tự động đọc, lập chỉ mục và tham khảo kiến thức từ tài liệu đó để trả lời chính xác. (Bao gồm sẵn sách *Modern Operating Systems 4th Edition*).
-- ✨ **Tối ưu Trắc nghiệm:** Thuật toán thông minh tự động nhận diện câu hỏi trắc nghiệm (MCQ) và đưa ra các ký tự đáp án (VD: A, B, C) một cách dứt khoát nhất.
+  - Anthropic / Internal Proxies (e.g., 9Router)
+- 📚 **Automated RAG System:** Drop any PDF textbook or document into the `docs/` folder. ViTai will automatically read, index, and use that context to answer your questions accurately. (*Modern Operating Systems 4th Edition* is included by default).
+- ✨ **MCQ Optimization:** The smart algorithm automatically detects Multiple Choice Questions (MCQ) and decisively returns only the exact answer letter (e.g., A, B, C, D).
 
-## 📥 Tải về & Cài đặt nhanh
+## 📥 Quick Install & Setup
 
-1. Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và tải về file `ViTai_Release.zip` mới nhất.
-2. Giải nén toàn bộ thư mục ZIP.
-3. Mở file `.env` (bằng Notepad). Xóa dấu `#` ở phần AI mà bạn muốn dùng và dán **API Key** của bạn vào.
-4. Chạy file `ViTai.exe`. Ứng dụng sẽ chạy ngầm dưới góc phải màn hình (System Tray).
+1. Go to the [Releases](https://github.com/namtacozz/ViTai/releases) page and download the latest `ViTai_Release.zip`.
+2. Extract the ZIP folder.
+3. Open the `.env` file with Notepad. Remove the `#` symbol for the AI provider you want to use and paste your **API Key**.
+4. Run `ViTai.exe`. The application will quietly run in the background (System Tray).
 
-## 🖱 Hướng dẫn sử dụng
+## 🖱 How to Use
 
-1. Đảm bảo ViTai đang chạy ở System Tray.
-2. Bôi đen một đoạn văn bản/câu hỏi ở bất kỳ ứng dụng nào.
-3. **Cách 1 (Tự động):** Nếu bật "Tự động trả lời ngay khi bôi đen text" trong phần Cài đặt, đáp án sẽ tự động nhảy ra sau 150ms.
-4. **Cách 2 (Thủ công):** Nhấn tổ hợp phím mặc định `Alt + Q` (hoặc phím bạn đã tự cài).
-5. Xem đáp án xuất hiện lơ lửng ngay dưới đuôi con trỏ chuột của bạn.
-6. Click chuột ra ngoài hoặc ấn `Esc` để tắt đáp án.
+1. Ensure ViTai is running in your System Tray.
+2. Highlight a text block or question in any application.
+3. **Method 1 (Automatic):** If "Auto-translate" is enabled in Settings, the answer will pop up automatically 150ms after you release the mouse.
+4. **Method 2 (Manual):** Press the default hotkey `Alt + Q` (or your custom hotkey).
+5. The answer will float directly below your mouse cursor.
+6. Click anywhere on the screen or press `Esc` to close the answer tooltip.
 
-## 🛠 Hướng dẫn Build từ Mã nguồn (Dành cho Dev)
+## 🛠 Build from Source (For Developers)
 
-Nếu bạn muốn tự chỉnh sửa mã nguồn và đóng gói:
+If you want to modify the source code and build it yourself:
 
-1. Tạo và kích hoạt môi trường ảo (Virtual Environment):
+1. Create and activate a Virtual Environment:
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-2. Cài đặt các thư viện cần thiết:
+2. Install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Thêm file sách (nếu có) vào thư mục `docs/`.
+3. Add your context books (if any) to the `docs/` folder.
 
-4. Đóng gói thành file `.exe`:
+4. Package it into an `.exe`:
 ```bash
 python scripts/build_windows.py
 ```
-*Lưu ý: Nếu có lỗi Permission denied, hãy đảm bảo bạn đã thoát hoàn toàn (chuột phải > Thoát) `ViTai.exe` trước khi build.*
+*Note: If you encounter a Permission denied error, ensure that `ViTai.exe` is completely closed (Right-click tray icon > Quit) before building.*
 
-Thư mục `dist/ViTai/` sẽ chứa ứng dụng hoàn chỉnh để sử dụng.
+The fully compiled application will be available in the `dist/ViTai/` directory.
