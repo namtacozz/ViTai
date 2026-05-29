@@ -38,7 +38,7 @@ class AnswerOverlay(QWidget):
         
         self.setStyleSheet(
             f"QWidget#card {{ background: transparent; border: none; }}"
-            f"QLabel {{ color: {text_color}; font-weight: bold; font-size: {font_size}px; font-family: '{font_family}', sans-serif; }}"
+            f"QLabel {{ color: {text_color}; font-size: {font_size}px; font-family: '{font_family}', sans-serif; }}"
         )
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -55,7 +55,6 @@ class AnswerOverlay(QWidget):
         font_family = self._config.font_family if self._config else "Arial"
         font_size = self._config.font_size if self._config else 24
         font = QFont(font_family, font_size)
-        font.setBold(True)
         self.label.setFont(font)
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -101,5 +100,5 @@ class AnswerOverlay(QWidget):
             return
         available = screen.availableGeometry()
         x = min(max(available.left(), self._anchor.x()), available.right() - self.width())
-        y = min(max(available.top(), self._anchor.y()), available.bottom() - self.height())
+        y = min(max(available.top(), self._anchor.y() - self.height() - 10), available.bottom() - self.height())
         self.move(x, y)

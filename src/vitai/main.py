@@ -72,6 +72,7 @@ class ViTaiApp:
         self.worker_lock = threading.Lock()
         self.preview_lock = threading.Lock()
         self.mouse_press_pos: tuple[int, int] | None = None
+        self.text_cache: dict[str, str] = {}
 
         self.selection_anchor: tuple[int, int] | None = None
         self.mouse_listener: mouse.Listener | None = None
@@ -154,6 +155,7 @@ class ViTaiApp:
         self.settings_window.activateWindow()
 
     def _on_config_changed(self, new_config: AppConfig) -> None:
+        old_config = self.config
         self.config = new_config
         save_config(self.config_path, self.config)
         set_startup(self.config.start_with_windows)
@@ -162,6 +164,19 @@ class ViTaiApp:
         if self.overlay is not None:
             self.overlay.close()
             self.overlay = None
+            
+        if not self.config.cache_enabled:
+            self.text_cache.clear()
+
+        if old_config.hotkey_modifier != new_config.hotkey_modifier or old_config.hotkey_key != new_config.hotkey_key:
+            self.hotkey_manager.stop()
+            self.hotkey_manager = HotkeyManager(
+                self.config.hotkey_modifier,
+                self.config.hotkey_key,
+                self._emit_hotkey,
+                backend=self.config.hotkey_backend,
+            )
+            self.hotkey_manager.start()
 
     def _emit_hotkey(self) -> None:
         self.bridge.hotkey_pressed.emit()
@@ -187,6 +202,9 @@ class ViTaiApp:
             return
         self.selection_anchor = (min(start[0], x), min(start[1], y))
 
+        if self.config.auto_translate:
+            # Đợi 150ms để Windows xử lý xong sự kiện nhả chuột rồi mới copy
+            threading.Timer(0.15, self._start_answer_request).start()
 
     def _process_selection(self) -> None:
         if not self.worker_lock.acquire(blocking=False):
@@ -196,6 +214,10 @@ class ViTaiApp:
             selected_text = get_selected_text()
             if not selected_text:
                 self.bridge.answer_ready.emit("Không tìm thấy text bôi đen")
+                return
+                
+            if self.config.cache_enabled and selected_text in self.text_cache:
+                self.bridge.answer_ready.emit(self.text_cache[selected_text])
                 return
 
             self.bridge.answer_ready.emit("...")
@@ -215,7 +237,12 @@ class ViTaiApp:
             answer = client.ask(selected_text, question_is_mcq)
             if question_is_mcq:
                 answer = normalize_mcq_answer(answer)
-            self.bridge.answer_ready.emit(answer or "Không có phản hồi")
+                
+            final_answer = answer or "Không có phản hồi"
+            if self.config.cache_enabled:
+                self.text_cache[selected_text] = final_answer
+                
+            self.bridge.answer_ready.emit(final_answer)
         except Exception as exc:
             self.logger.exception("Failed to answer selection")
             self.bridge.answer_ready.emit(f"Lỗi kết nối API: {exc}")

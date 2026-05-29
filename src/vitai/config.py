@@ -18,6 +18,8 @@ class AppConfig:
     font_family: str = "Arial"
     font_size: int = 24
     text_color: str = "#212529"
+    auto_translate: bool = False
+    cache_enabled: bool = True
 
 
 def default_config_path() -> Path:
