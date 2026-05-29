@@ -15,6 +15,9 @@ class AppConfig:
     hotkey_key: str = "q"
     hotkey_backend: str = "pynput"
     start_with_windows: bool = False
+    font_family: str = "Arial"
+    font_size: int = 24
+    text_color: str = "#212529"
 
 
 def default_config_path() -> Path:

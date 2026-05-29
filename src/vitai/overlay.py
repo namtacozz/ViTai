@@ -5,14 +5,15 @@ from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QKeyEvent
 from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from vitai.config import AppConfig
 from vitai.resources import resource_path
-
 
 class AnswerOverlay(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, text: str = "", timeout_ms: int = 0):
+    def __init__(self, text: str = "", timeout_ms: int = 0, config: AppConfig | None = None):
         super().__init__()
+        self._config = config
         self._answer = text
         self._anchor = QPoint(0, 0)
         self._mode = "answer"
@@ -31,9 +32,13 @@ class AnswerOverlay(QWidget):
             QTimer.singleShot(timeout_ms, self.close)
 
     def _build_ui(self) -> None:
+        font_family = self._config.font_family if self._config else "Arial"
+        font_size = self._config.font_size if self._config else 24
+        text_color = self._config.text_color if self._config else "#212529"
+        
         self.setStyleSheet(
-            "QWidget#card { background: transparent; border: none; }"
-            "QLabel { color: #212529; font-weight: bold; font-size: 14px; }"
+            f"QWidget#card {{ background: transparent; border: none; }}"
+            f"QLabel {{ color: {text_color}; font-weight: bold; font-size: {font_size}px; font-family: '{font_family}', sans-serif; }}"
         )
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -46,7 +51,10 @@ class AnswerOverlay(QWidget):
 
 
         self.label = QLabel(self.card)
-        font = QFont("Segoe UI", 11)
+        
+        font_family = self._config.font_family if self._config else "Arial"
+        font_size = self._config.font_size if self._config else 24
+        font = QFont(font_family, font_size)
         font.setBold(True)
         self.label.setFont(font)
         self.label.setWordWrap(True)

@@ -23,6 +23,8 @@ from vitai.logging_config import configure_logging
 from vitai.mcq import is_mcq, normalize_mcq_answer
 from vitai.overlay import AnswerOverlay
 from vitai.resources import resource_path
+from vitai.settings import SettingsWindow
+from vitai.startup import set_startup
 from dotenv import load_dotenv
 
 configure_utf8_stdio()
@@ -66,6 +68,7 @@ class ViTaiApp:
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_overlay_if_outside_ready.connect(self.hide_overlay_if_outside)
         self.overlay: AnswerOverlay | None = None
+        self.settings_window: SettingsWindow | None = None
         self.worker_lock = threading.Lock()
         self.preview_lock = threading.Lock()
         self.mouse_press_pos: tuple[int, int] | None = None
@@ -79,6 +82,7 @@ class ViTaiApp:
             self._emit_hotkey,
             backend=self.config.hotkey_backend,
         )
+        set_startup(self.config.start_with_windows)
 
     def _load_config_with_env(self) -> AppConfig:
         config = load_config(self.config_path)
@@ -125,11 +129,11 @@ class ViTaiApp:
         tray = QSystemTrayIcon(QIcon(str(resource_path("assets/icon.ico"))), self.qt_app)
         tray.setToolTip("ViTai")
         menu = QMenu()
-        show_action = QAction("Show", menu)
-        show_action.triggered.connect(lambda: self.show_answer("ViTai đang chạy. Bôi đen text rồi nhấn Alt+Q."))
-        quit_action = QAction("Quit", menu)
+        settings_action = QAction("Cài đặt", menu)
+        settings_action.triggered.connect(self.show_settings)
+        quit_action = QAction("Thoát", menu)
         quit_action.triggered.connect(self.quit)
-        menu.addAction(show_action)
+        menu.addAction(settings_action)
         menu.addAction(quit_action)
         tray.setContextMenu(menu)
         tray.activated.connect(self._tray_activated)
@@ -138,7 +142,26 @@ class ViTaiApp:
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.show_answer("ViTai đang chạy. Bôi đen text rồi nhấn Alt+Q.")
+            self.show_settings()
+
+    def show_settings(self) -> None:
+        if self.settings_window is None:
+            self.settings_window = SettingsWindow(self.config)
+            self.settings_window.config_changed.connect(self._on_config_changed)
+            self.settings_window.exit_requested.connect(self.quit)
+        self.settings_window.show()
+        self.settings_window.raise_()
+        self.settings_window.activateWindow()
+
+    def _on_config_changed(self, new_config: AppConfig) -> None:
+        self.config = new_config
+        save_config(self.config_path, self.config)
+        set_startup(self.config.start_with_windows)
+        
+        # Đóng overlay để lần sau nó sẽ tạo lại với config mới (font, màu chữ)
+        if self.overlay is not None:
+            self.overlay.close()
+            self.overlay = None
 
     def _emit_hotkey(self) -> None:
         self.bridge.hotkey_pressed.emit()
@@ -214,7 +237,7 @@ class ViTaiApp:
                 self.handle_hotkey()
                 return
         if self.overlay is None or not self.overlay.isVisible():
-            self.overlay = AnswerOverlay(text)
+            self.overlay = AnswerOverlay(text, config=self.config)
             self.overlay.clicked.connect(self._start_answer_request)
         anchor = self.selection_anchor if x is None or y is None else (x, y)
         if anchor is None:
