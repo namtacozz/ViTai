@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTabWidget,
@@ -55,7 +56,7 @@ UI_LANGUAGES = [
 TRANSLATOR_PROVIDERS = [
     ("translator_google", "google"),
     ("translator_deepl", "deepl"),
-    ("AI Translate (LLM)", "ai"),
+    ("translator_ai", "ai"),
 ]
 
 CAPTURE_PROVIDERS = [("MSS", "mss"), ("DXCam", "dxcam")]
@@ -820,20 +821,18 @@ class SettingsWindow(QDialog):
 
     def _update_texts(self, language: str) -> None:
         self.setWindowTitle(tr("settings_title", language))
-        self.translate_group.setTitle(tr("translation_group", language))
         self.source_label.setText(tr("source_language", language))
         self.target_label.setText(tr("target_language", language))
         self.provider_label.setText(tr("translator_provider", language))
         for index, (label_key, _code) in enumerate(TRANSLATOR_PROVIDERS):
             self.provider_combo.setItemText(index, tr(label_key, language))
         self.failover_check.setText(tr("translator_failover", language))
-        self.tabs.setTabText(0, tr("basic_group", language))
-        self.tabs.setTabText(1, tr("transtyle_tab", language))
-        self.tabs.setTabText(2, tr("advanced_group", language))
-        self.tabs.setTabText(3, tr("system_group", language))
+        
+        self.tabs.setTabText(0, "⚙️ " + tr("basic_group", language))
+        self.tabs.setTabText(1, "🌐 " + tr("translation_group", language))
+        self.tabs.setTabText(2, "🤖 AI Assistant")
+        
         self.transtyle_label.setText(tr("translation_style", language))
-        self.transtyle_rules_label.setText(tr("transtyle_rules_summary", language))
-        self.transtyle_mvp_label.setText(tr("transtyle_mvp_summary", language))
         self.transtyle_editor_btn.setText(tr("edit_transtyle", language))
         self.capture_label.setText(tr("capture_engine", language))
         self.ocr_label.setText(tr("ocr_engine", language))
@@ -844,22 +843,16 @@ class SettingsWindow(QDialog):
         self.hotkey_backend_label.setText(tr("hotkey_backend", language))
         self.color_label.setText(tr("overlay_color", language))
         self.ui_language_label.setText(tr("ui_language", language))
-        self.hotkey_label.setText(tr("hotkey", language))
+        self.hotkey_label.setText(tr("hotkey", language) + " (Translate)")
         self.auto_check.setText(tr("auto_translate_default", language))
         self.interval_label.setText(tr("auto_interval", language))
         self.admin_check.setText(tr("run_as_admin", language))
         self.startup_check.setText(tr("start_with_windows", language))
         self.save_btn.setText(tr("save", language))
         self.reset_btn.setText(tr("reset", language))
-        self.exit_btn.setText(tr("exit", language))
 
     def _update_status_text(self) -> None:
-        modifier = self.modifier_combo.currentText() if hasattr(self, "modifier_combo") else "Alt"
-        key = self.key_combo.currentText() if hasattr(self, "key_combo") else "T"
-        language = str(self.ui_language_combo.currentData()) if hasattr(self, "ui_language_combo") else self._config.ui_language
-        self.status_label.setText(
-            f"ViTai v{VERSION}  ·  {modifier}+{key} {tr('hotkey_display', language)}"
-        )
+        pass
 
     def closeEvent(self, event) -> None:
         """Hide to tray instead of closing."""
