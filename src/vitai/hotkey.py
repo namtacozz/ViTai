@@ -90,15 +90,7 @@ class HotkeyManager:
     def start(self) -> None:
         combo = self._build_combo_string()
         self._backend = self._create_backend(combo)
-        try:
-            self._backend.start()
-        except Exception as exc:
-            if isinstance(self._backend, _Win32HotkeyBackend):
-                _LOGGER.warning("Win32 hotkey backend failed on start, falling back to pynput: %s", exc)
-                self._backend = _PynputHotkeyBackend(combo, self._callback)
-                self._backend.start()
-            else:
-                raise
+        self._backend.start()
 
     def stop(self) -> None:
         if self._backend is not None:
