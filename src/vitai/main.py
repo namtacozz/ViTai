@@ -9,6 +9,8 @@ from vitai.encoding import configure_utf8_stdio
 
 configure_utf8_stdio()
 
+import torch
+
 from PyQt6.QtCore import QObject, QRect, QTimer, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import QApplication, QInputDialog, QSystemTrayIcon, QMenu

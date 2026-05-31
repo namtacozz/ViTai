@@ -15,12 +15,12 @@ TOP_BAR_HEIGHT = 0
 RESIZE_MARGIN = 8
 
 OVERLAY_COLORS: dict[str, tuple[QColor, QColor]] = {
-    "blue": (QColor(40, 120, 220, 45), QColor(80, 180, 255, 180)),
-    "green": (QColor(40, 180, 80, 45), QColor(80, 255, 140, 180)),
-    "red": (QColor(220, 60, 60, 45), QColor(255, 120, 120, 180)),
-    "purple": (QColor(140, 60, 220, 45), QColor(180, 120, 255, 180)),
-    "orange": (QColor(220, 140, 40, 45), QColor(255, 180, 80, 180)),
-    "white": (QColor(200, 200, 200, 45), QColor(230, 230, 230, 180)),
+    "blue": (QColor(40, 120, 220, 160), QColor(80, 180, 255, 200)),
+    "green": (QColor(40, 180, 80, 160), QColor(80, 255, 140, 200)),
+    "red": (QColor(220, 60, 60, 160), QColor(255, 120, 120, 200)),
+    "purple": (QColor(140, 60, 220, 160), QColor(180, 120, 255, 200)),
+    "orange": (QColor(220, 140, 40, 160), QColor(255, 180, 80, 200)),
+    "white": (QColor(200, 200, 200, 160), QColor(230, 230, 230, 200)),
 }
 
 SOURCE_LANGUAGES = [
