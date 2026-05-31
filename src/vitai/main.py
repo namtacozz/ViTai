@@ -10,8 +10,8 @@ from vitai.encoding import configure_utf8_stdio
 configure_utf8_stdio()
 
 from PyQt6.QtCore import QObject, QRect, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QInputDialog, QSystemTrayIcon
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtWidgets import QApplication, QInputDialog, QSystemTrayIcon, QMenu
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -134,6 +134,17 @@ class ViTaiApp:
     def _create_tray(self) -> QSystemTrayIcon:
         tray = QSystemTrayIcon(QIcon(str(resource_path("assets/icon.ico"))), self.qt_app)
         tray.setToolTip("ViTai")
+        
+        menu = QMenu()
+        settings_action = QAction("⚙️ Cài đặt", self.qt_app)
+        settings_action.triggered.connect(self.show_settings)
+        menu.addAction(settings_action)
+        
+        exit_action = QAction("❌ Thoát", self.qt_app)
+        exit_action.triggered.connect(self.quit)
+        menu.addAction(exit_action)
+        
+        tray.setContextMenu(menu)
         tray.activated.connect(self._tray_activated)
         tray.show()
         return tray
