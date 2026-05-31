@@ -50,7 +50,8 @@ class AnswerOverlay(QWidget):
 
         self.scroll_area = __import__('PyQt6.QtWidgets', fromlist=['QScrollArea']).QScrollArea(self.card)
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+        self.scroll_area.viewport().setStyleSheet("background: transparent;")
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
         self.label = QLabel()
