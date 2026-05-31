@@ -27,9 +27,9 @@ class LlmClient:
         self.base_url = base_url.rstrip("/")
         self.model = model
 
-    def ask(self, question: str, is_mcq: bool) -> str:
+    def ask(self, question: str, is_mcq: bool, sys_prompt_override: str | None = None) -> str:
         context = get_rag_context(question)
-        sys_prompt = system_prompt_for(is_mcq, context)
+        sys_prompt = sys_prompt_override if sys_prompt_override else system_prompt_for(is_mcq, context)
         
         if self.provider == "anthropic":
             return self._ask_anthropic(question, sys_prompt)

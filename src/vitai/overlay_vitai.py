@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pyperclip
 from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
@@ -21,8 +21,6 @@ class AnswerOverlay(QWidget):
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
-            | Qt.WindowType.WindowDoesNotAcceptFocus
-            | Qt.WindowType.WindowTransparentForInput
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -50,17 +48,30 @@ class AnswerOverlay(QWidget):
 
 
 
-        self.label = QLabel(self.card)
+        self.scroll_area = __import__('PyQt6.QtWidgets', fromlist=['QScrollArea']).QScrollArea(self.card)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        font_family = self._config.font_family if self._config else "Arial"
-        font_size = self._config.font_size if self._config else 24
+        self.label = QLabel()
+        
         font = QFont(font_family, font_size)
         self.label.setFont(font)
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self.label)
+        
+        self.scroll_area.setWidget(self.label)
+        layout.addWidget(self.scroll_area)
 
         root.addWidget(self.card)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if self._answer and self._answer != "...":
+            pyperclip.copy(self._answer)
+            # Show a brief copied message
+            old_text = self._answer
+            self.label.setText("Đã copy vào clipboard!")
+            QTimer.singleShot(1000, lambda: self.label.setText(old_text))
 
     def set_anchor(self, x: int, y: int) -> None:
         self._anchor = QPoint(x, y)
@@ -72,7 +83,7 @@ class AnswerOverlay(QWidget):
         self._answer = text
         self.label.setText(text)
         self.adjustSize()
-        self.resize(min(max(self.width(), 80), 520), min(max(self.height(), 52), 320))
+        self.resize(min(max(self.width(), 120), 520), min(max(self.height(), 52), 400))
 
     def show_message(self, text: str, x: int | None = None, y: int | None = None) -> None:
         self._mode = "answer"

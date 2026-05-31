@@ -6,7 +6,6 @@ from vitai.encoding import configure_utf8_stdio
 
 configure_utf8_stdio()
 
-import easyocr
 import numpy as np
 from PIL import Image
 
@@ -16,7 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
-def get_reader() -> easyocr.Reader:
+def get_reader() -> 'easyocr.Reader':
+    import easyocr
     return easyocr.Reader(["en"], gpu=False)
 
 
@@ -57,6 +57,7 @@ def read_text(image: Image.Image, min_confidence: float = 0.35, provider_id: str
 
 
 def _read_easyocr(image: Image.Image, min_confidence: float) -> list[OcrResult]:
+    import easyocr
     reader = get_reader()
     raw_results = reader.readtext(np.array(image))
     results: list[OcrResult] = []

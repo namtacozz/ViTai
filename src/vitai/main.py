@@ -55,6 +55,7 @@ class UiBridge(QObject):
     status_ready = pyqtSignal(object, str)
     answer_ready = pyqtSignal(str)
     hide_answer_overlay_ready = pyqtSignal(int, int)
+    trigger_faa_requested = pyqtSignal()
 
 
 class ViTaiApp:
@@ -96,6 +97,7 @@ class ViTaiApp:
         self.bridge.status_ready.connect(self._on_status_ready)
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_answer_overlay_ready.connect(self.hide_answer_overlay)
+        self.bridge.trigger_faa_requested.connect(self._start_answer_request)
         self.ocr_lock = threading.Lock()
         self.ai_worker_lock = threading.Lock()
         self.speech_runner = SpeechRunner()
@@ -103,6 +105,12 @@ class ViTaiApp:
             self.config.hotkey_modifier,
             self.config.hotkey_key,
             self.toggle_overlay_threadsafe,
+            backend=self.config.hotkey_backend,
+        )
+        self.faa_hotkey_manager = HotkeyManager(
+            self.config.faa_hotkey_modifier,
+            self.config.faa_hotkey_key,
+            self.trigger_faa_threadsafe,
             backend=self.config.hotkey_backend,
         )
         QTimer.singleShot(3000, self._start_ocr_warmup)
@@ -158,6 +166,12 @@ class ViTaiApp:
             self.hotkey_manager.update(new_config.hotkey_modifier, new_config.hotkey_key, new_config.hotkey_backend)
             self.logger.info("Hotkey updated")
 
+        if (old_config.faa_hotkey_modifier != new_config.faa_hotkey_modifier
+                or old_config.faa_hotkey_key != new_config.faa_hotkey_key
+                or old_config.hotkey_backend != new_config.hotkey_backend):
+            self.faa_hotkey_manager.update(new_config.faa_hotkey_modifier, new_config.faa_hotkey_key, new_config.hotkey_backend)
+            self.logger.info("FAA Hotkey updated")
+
         if old_config.overlay_color != new_config.overlay_color:
             for overlay in self.overlays:
                 overlay.update_overlay_color(new_config.overlay_color)
@@ -184,12 +198,17 @@ class ViTaiApp:
 
     def run(self) -> int:
         self.hotkey_manager.start()
+        self.faa_hotkey_manager.start()
         self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
         self.mouse_listener.start()
         return self.qt_app.exec()
 
     def toggle_overlay_threadsafe(self) -> None:
         self.bridge.toggle_requested.emit()
+
+    def trigger_faa_threadsafe(self) -> None:
+        if self.config.ghost_faa_enabled:
+            self.bridge.trigger_faa_requested.emit()
 
     def open_ui(self) -> None:
         self.start_selection()
@@ -588,14 +607,19 @@ class ViTaiApp:
 
             self.bridge.answer_ready.emit("...")
 
-            if not self.config.api_key:
+            api_key = self.config.api_key
+            if not api_key:
+                import os
+                api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+
+            if not api_key:
                 self.bridge.answer_ready.emit("Chưa có API Key")
                 return
 
             question_is_mcq = is_mcq(selected_text)
             client = LlmClient(
                 self.config.provider,
-                self.config.api_key,
+                api_key,
                 self.config.base_url,
                 self.config.model,
             )
@@ -655,6 +679,7 @@ class ViTaiApp:
             save_config(self.config_path, self.config)
         self.speech_runner.stop()
         self.hotkey_manager.stop()
+        self.faa_hotkey_manager.stop()
         if self.mouse_listener is not None:
             self.mouse_listener.stop()
         self.tray.hide()

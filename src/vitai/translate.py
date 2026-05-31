@@ -4,8 +4,6 @@ import os
 import time
 from typing import Protocol
 
-from deep_translator import GoogleTranslator
-
 from vitai.transtyle import TranstyleProfile, apply_postprocess, apply_preprocess, find_exact_correction, get_profile
 
 
@@ -38,6 +36,10 @@ class GoogleTranslatorProvider:
         source_language: str,
         api_key: str = "",
     ) -> list[str]:
+        try:
+            from deep_translator import GoogleTranslator
+        except ImportError as exc:
+            raise TranslationError("Google translator is unavailable") from exc
         translator = GoogleTranslator(source=source_language, target=target_language)
         return translator.translate_batch(texts)
 
@@ -64,9 +66,47 @@ class DeepLTranslatorProvider:
         return translator.translate_batch(texts)
 
 
+class AiTranslatorProvider:
+    id = "ai"
+    display_name = "AI Translate (LLM)"
+
+    def translate_batch(
+        self,
+        texts: list[str],
+        target_language: str,
+        source_language: str,
+        api_key: str = "",
+    ) -> list[str]:
+        from vitai.llm import LlmClient
+        from vitai.config import load_config, get_config_path
+        import os
+        
+        config = load_config(get_config_path())
+        key = config.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        if not key:
+            raise TranslationError("API key is missing for AI Translate")
+            
+        client = LlmClient(config.provider, key, config.base_url, config.model)
+        
+        sys_prompt = f"Bạn là một dịch giả chuyên nghiệp. Dịch chính xác văn bản sau từ ngôn ngữ {source_language} sang ngôn ngữ {target_language}. CHỈ trả về bản dịch, KHÔNG giải thích, KHÔNG thêm ghi chú. Giữ nguyên định dạng và xuống dòng."
+        
+        results = []
+        for text in texts:
+            if not text.strip():
+                results.append("")
+                continue
+            try:
+                res = client.ask(text, is_mcq=False, sys_prompt_override=sys_prompt)
+                results.append(res)
+            except Exception as e:
+                results.append(f"[Error: {e}]")
+        return results
+
+
 _PROVIDERS: dict[str, TranslatorProvider] = {
     "google": GoogleTranslatorProvider(),
     "deepl": DeepLTranslatorProvider(),
+    "ai": AiTranslatorProvider(),
 }
 
 _TRANSLATION_CACHE: dict[tuple[str, str, str, str, int, str], str] = {}

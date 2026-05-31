@@ -47,6 +47,8 @@ class AppConfig:
     # Hotkey
     hotkey_modifier: str = "alt"
     hotkey_key: str = "t"
+    faa_hotkey_modifier: str = "alt"
+    faa_hotkey_key: str = "q"
     hotkey_backend: str = "auto"
 
     # Providers

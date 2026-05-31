@@ -20,6 +20,16 @@ def main() -> int:
         str(root / "assets" / "icon.ico"),
         "--add-data",
         f"{root / 'assets' / 'icon.ico'};assets",
+        "--collect-all",
+        "easyocr",
+        "--collect-all",
+        "torchvision",
+        "--hidden-import",
+        "scipy",
+        "--hidden-import",
+        "pyttsx3",
+        "--hidden-import",
+        "deep_translator",
     ]
     if (root / "assets" / "logo.png").exists():
         command.extend(["--add-data", f"{root / 'assets' / 'logo.png'};assets"])
