@@ -23,6 +23,8 @@ def main() -> int:
         "--collect-all",
         "easyocr",
         "--collect-all",
+        "torch",
+        "--collect-all",
         "torchvision",
         "--hidden-import",
         "scipy",

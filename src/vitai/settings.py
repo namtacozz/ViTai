@@ -621,8 +621,8 @@ class SettingsWindow(QDialog):
         ai_layout.addStretch()
 
         self.tabs.addTab(self.general_tab, "⚙️ Chung")
-        self.tabs.addTab(self.translate_tab, "🌐 Dịch thuật")
-        self.tabs.addTab(self.ai_tab, "🤖 AI Assistant")
+        self.tabs.addTab(self.translate_tab, "👁️ Thấu hiểu")
+        self.tabs.addTab(self.ai_tab, "🧠 Tri thức")
         content_layout.addWidget(self.tabs, 1)
 
         btn_row = QHBoxLayout()
@@ -829,8 +829,8 @@ class SettingsWindow(QDialog):
         self.failover_check.setText(tr("translator_failover", language))
         
         self.tabs.setTabText(0, "⚙️ " + tr("basic_group", language))
-        self.tabs.setTabText(1, "🌐 " + tr("translation_group", language))
-        self.tabs.setTabText(2, "🤖 AI Assistant")
+        self.tabs.setTabText(1, "👁️ Thấu hiểu")
+        self.tabs.setTabText(2, "🧠 Tri thức")
         
         self.transtyle_label.setText(tr("translation_style", language))
         self.transtyle_editor_btn.setText(tr("edit_transtyle", language))
