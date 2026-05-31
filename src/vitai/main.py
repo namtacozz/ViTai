@@ -9,6 +9,22 @@ from vitai.encoding import configure_utf8_stdio
 
 configure_utf8_stdio()
 
+import ctypes
+
+def _fix_std_handles():
+    # Fix for WinError 1114 in windowed mode due to missing console handles
+    kernel32 = ctypes.windll.kernel32
+    STD_OUTPUT_HANDLE = -11
+    STD_ERROR_HANDLE = -12
+    if kernel32.GetStdHandle(STD_OUTPUT_HANDLE) == 0:
+        nul = kernel32.CreateFileW("NUL", 0x40000000, 3, None, 3, 128, None)
+        kernel32.SetStdHandle(STD_OUTPUT_HANDLE, nul)
+    if kernel32.GetStdHandle(STD_ERROR_HANDLE) == 0:
+        nul = kernel32.CreateFileW("NUL", 0x40000000, 3, None, 3, 128, None)
+        kernel32.SetStdHandle(STD_ERROR_HANDLE, nul)
+
+_fix_std_handles()
+
 import torch
 
 from PyQt6.QtCore import QObject, QRect, QTimer, pyqtSignal
