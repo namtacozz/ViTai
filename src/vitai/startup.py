@@ -1,6 +1,7 @@
 """Windows startup registry and admin elevation helpers."""
 
 import ctypes
+import subprocess
 import sys
 
 REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -76,7 +77,7 @@ def restart_as_admin() -> None:
         None,
         "runas",
         sys.executable,
-        " ".join(sys.argv),
+        subprocess.list2cmdline(sys.argv[1:]),
         None,
         1,
     )

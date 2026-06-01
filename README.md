@@ -17,12 +17,12 @@
 
 ## 🚀 Key Features
 
-### 🌐 Screen Translation
+### 👁️ Thấu hiểu (Screen Translation)
 - 🔠 **OCR Built-in:** Uses EasyOCR or PaddleOCR to read text directly from a designated area on your screen.
 - ⚡ **Multi-Engine Translation:** Supports Google Translate, DeepL, and advanced AI LLMs for context-aware translations.
 - 🎨 **Visual Overlays:** Translations appear directly on top of the original text with customizable bounding boxes, backgrounds, and text colors.
 
-### 👻 Ghost FAA (AI Assistant)
+### 🧠 Tri thức (Ghost FAA / AI Assistant)
 - 🎯 **Zero-UI Experience:** Answers appear as a floating text overlay precisely where you release your mouse, acting like a smart tooltip.
 - 🧠 **Multi-Provider AI:** Extremely lightweight via direct REST API calls. Supported providers: Gemini (Google), OpenAI (ChatGPT), DeepSeek, Anthropic, etc.
 - ✨ **MCQ Optimization:** The smart algorithm automatically detects Multiple Choice Questions (MCQ) and decisively returns only the exact answer letter.
@@ -35,11 +35,12 @@
 
 ## 📥 Quick Install & Setup
 
-1. Go to the [Releases](https://github.com/namtacozz/ViTai/releases) page and download the latest `ViTai_Release.zip`.
-2. Extract the ZIP folder.
-3. Open the application. Right-click the system tray icon, select **Settings**.
-4. In the **AI Assistant** tab, input your API Key for your preferred LLM provider.
-5. In the **Translation** tab, select your preferred OCR and translation engines.
+1. **Prerequisite:** Ensure you have the [Microsoft Visual C++ Redistributable 2015-2022 (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) installed. This is required for PyTorch to run on Windows.
+2. Go to the [Releases](https://github.com/namtacozz/ViTai/releases) page and download the latest `ViTai_Release.zip`.
+3. Extract the ZIP folder.
+4. Open the application. Right-click the system tray icon, select **Settings**.
+5. In the **Tri thức** (AI Assistant) tab, input your API Key for your preferred LLM provider.
+6. In the **Thấu hiểu** (Translation) tab, select your preferred OCR and translation engines.
 
 ## 🖱 How to Use
 

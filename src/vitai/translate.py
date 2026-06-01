@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 import os
 import time
 from typing import Protocol
@@ -109,11 +110,31 @@ _PROVIDERS: dict[str, TranslatorProvider] = {
     "ai": AiTranslatorProvider(),
 }
 
-_TRANSLATION_CACHE: dict[tuple[str, str, str, str, int, str], str] = {}
+_TRANSLATION_CACHE_MAX_SIZE = 512
+_TRANSLATION_CACHE: OrderedDict[tuple[str, str, str, str, int, str], str] = OrderedDict()
 
 
-def clear_translation_cache() -> None:
+def clear_translation_cache(max_size: int | None = None) -> None:
+    global _TRANSLATION_CACHE_MAX_SIZE
+    if max_size is not None:
+        _TRANSLATION_CACHE_MAX_SIZE = max(1, max_size)
     _TRANSLATION_CACHE.clear()
+
+
+def _get_cached_translation(cache_key: tuple[str, str, str, str, int, str]) -> str | None:
+    if cache_key not in _TRANSLATION_CACHE:
+        return None
+    value = _TRANSLATION_CACHE.pop(cache_key)
+    _TRANSLATION_CACHE[cache_key] = value
+    return value
+
+
+def _store_cached_translation(cache_key: tuple[str, str, str, str, int, str], value: str) -> None:
+    if cache_key in _TRANSLATION_CACHE:
+        _TRANSLATION_CACHE.pop(cache_key)
+    _TRANSLATION_CACHE[cache_key] = value
+    while len(_TRANSLATION_CACHE) > _TRANSLATION_CACHE_MAX_SIZE:
+        _TRANSLATION_CACHE.popitem(last=False)
 
 
 def translate_texts(
@@ -140,8 +161,9 @@ def translate_texts(
             results[text] = corrected
             continue
         cache_key = _cache_key(provider_id, target_language, source_language, active_profile, text)
-        if cache_key in _TRANSLATION_CACHE:
-            results[text] = _TRANSLATION_CACHE[cache_key]
+        cached = _get_cached_translation(cache_key)
+        if cached is not None:
+            results[text] = cached
             continue
         preprocessed = apply_preprocess(active_profile, text)
         preprocessed_by_original[text] = preprocessed
@@ -161,7 +183,7 @@ def translate_texts(
         for original in missing_texts:
             translated_text = translated[preprocessed_by_original[original]]
             processed = apply_postprocess(active_profile, translated_text)
-            _TRANSLATION_CACHE[_cache_key(provider_id, target_language, source_language, active_profile, original)] = processed
+            _store_cached_translation(_cache_key(provider_id, target_language, source_language, active_profile, original), processed)
             results[original] = processed
 
     return [results[text] for text in texts]

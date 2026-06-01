@@ -13,6 +13,32 @@ CHỈ trả về DUY NHẤT một ký tự đáp án (A, B, C, D, ...).
 KHÔNG giải thích. KHÔNG thêm bất kỳ text nào khác."""
 
 
+def build_prompt(question: str, is_mcq: bool) -> str:
+    instruction = MCQ_SYSTEM_PROMPT if is_mcq else "Trả lời rõ ràng, tối đa 2 câu."
+    return f"{instruction}\n\n{question.strip()}"
+
+
+def extract_text(response) -> str:
+    content = getattr(response, "content", None)
+    if isinstance(content, list):
+        return "".join(
+            str(getattr(block, "text", ""))
+            for block in content
+            if getattr(block, "type", None) == "text"
+        )
+    if isinstance(content, str):
+        return content.strip()
+
+    choices = getattr(response, "choices", None)
+    if choices:
+        choice = choices[0]
+        message = choice.get("message", {}) if isinstance(choice, dict) else getattr(choice, "message", None)
+        if isinstance(message, dict):
+            return str(message.get("content", "")).strip()
+        return str(getattr(message, "content", "")).strip()
+    return ""
+
+
 def system_prompt_for(is_mcq: bool, context: str = "") -> str:
     base = MCQ_SYSTEM_PROMPT if is_mcq else GENERAL_SYSTEM_PROMPT
     if context:
@@ -81,8 +107,8 @@ class LlmClient:
                 "maxOutputTokens": 150
             }
         }
-        headers = {"content-type": "application/json"}
-        url = f"{self.base_url}/models/{self.model}:generateContent?key={self.api_key}"
+        headers = {"content-type": "application/json", "x-goog-api-key": self.api_key}
+        url = f"{self.base_url}/models/{self.model}:generateContent"
         return self._make_request(url, data, headers, self._extract_gemini)
 
     def _make_request(self, url: str, data: dict, headers: dict, extractor) -> str:
@@ -97,8 +123,7 @@ class LlmClient:
                 result = json.loads(response.read().decode("utf-8"))
                 return extractor(result)
         except urllib.error.HTTPError as e:
-            error_body = e.read().decode('utf-8', errors='ignore')
-            raise RuntimeError(f"HTTP {e.code}: {error_body}")
+            raise RuntimeError(f"HTTP {e.code}: {e.reason}")
         except Exception as e:
             raise RuntimeError(f"Lỗi API: {str(e)}")
 

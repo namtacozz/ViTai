@@ -1,5 +1,6 @@
 import ctypes
 import logging
+import os
 import sys
 import threading
 import time
@@ -7,23 +8,37 @@ import traceback
 
 from vitai.encoding import configure_utf8_stdio
 
+
+def fix_crt_handles_for_pytorch() -> None:
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+
+    try:
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+        kernel32.GetConsoleWindow.restype = ctypes.c_void_p
+        kernel32.AllocConsole.restype = ctypes.c_int
+        user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+        console_window = kernel32.GetConsoleWindow()
+        if not console_window:
+            kernel32.AllocConsole()
+            console_window = kernel32.GetConsoleWindow()
+        if console_window:
+            user32.ShowWindow(console_window, 0)
+
+        if sys.stdin is None:
+            sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")
+        if sys.stdout is None:
+            sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+        if sys.stderr is None:
+            sys.stderr = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+fix_crt_handles_for_pytorch()
 configure_utf8_stdio()
-
-import ctypes
-
-def _fix_std_handles():
-    # Fix for WinError 1114 in windowed mode due to missing console handles
-    kernel32 = ctypes.windll.kernel32
-    STD_OUTPUT_HANDLE = -11
-    STD_ERROR_HANDLE = -12
-    if kernel32.GetStdHandle(STD_OUTPUT_HANDLE) == 0:
-        nul = kernel32.CreateFileW("NUL", 0x40000000, 3, None, 3, 128, None)
-        kernel32.SetStdHandle(STD_OUTPUT_HANDLE, nul)
-    if kernel32.GetStdHandle(STD_ERROR_HANDLE) == 0:
-        nul = kernel32.CreateFileW("NUL", 0x40000000, 3, None, 3, 128, None)
-        kernel32.SetStdHandle(STD_ERROR_HANDLE, nul)
-
-_fix_std_handles()
 
 import torch
 
@@ -49,7 +64,7 @@ from vitai.hotkey import HotkeyManager
 from vitai.i18n import tr
 from vitai.logging_config import configure_logging
 from vitai.models import TranslatedBox
-from vitai.text_cache import TextResultCache
+from vitai.text_cache import FrameChangeCache, TextResultCache
 from vitai.ocr import read_text, warm_up_reader
 from vitai.overlay import OverlayWindow
 from vitai.resources import resource_path
@@ -101,6 +116,7 @@ class ViTaiApp:
         self.overlays: list[OverlayWindow] = []
         self.auto_workers: dict[OverlayWindow, AutoTranslateWorker] = {}
         self.text_caches: dict[OverlayWindow, TextResultCache] = {}
+        self.frame_caches: dict[OverlayWindow, FrameChangeCache] = {}
         self.selection_window: SelectionWindow | None = None
         self.settings_window: SettingsWindow | None = None
         self.answer_overlay: AnswerOverlay | None = None
@@ -299,6 +315,7 @@ class ViTaiApp:
         overlay.raise_()
         overlay.activateWindow()
         self.text_caches[overlay] = TextResultCache()
+        self.frame_caches[overlay] = FrameChangeCache()
         if overlay.auto_enabled():
             self.set_overlay_auto(overlay, True)
         self.config = self._config_with_overlay_state(overlay)
@@ -311,6 +328,7 @@ class ViTaiApp:
     def hide_overlay(self, overlay: OverlayWindow) -> None:
         self._stop_overlay_auto(overlay)
         self.text_caches.pop(overlay, None)
+        self.frame_caches.pop(overlay, None)
         self.config = self._config_with_overlay_state(overlay)
         save_config(self.config_path, self.config)
         overlay.hide()
@@ -326,6 +344,7 @@ class ViTaiApp:
             worker = AutoTranslateWorker(lambda: self._auto_translate_overlay_job(overlay), interval_seconds)
             self.auto_workers[overlay] = worker
             self.text_caches.setdefault(overlay, TextResultCache())
+            self.frame_caches.setdefault(overlay, FrameChangeCache())
             self.logger.info("Auto translate started")
             worker.start()
             return
@@ -407,6 +426,9 @@ class ViTaiApp:
             target_language = overlay.target_language()
             capture_area = content_capture_rect(overlay_rect, 0)
             image = capture_rect(capture_area, self.config.capture_provider)
+            frame_cache = self.frame_caches.setdefault(overlay, FrameChangeCache())
+            if not frame_cache.has_changed(image):
+                return
             with self.ocr_lock:
                 ocr_results = read_text(image, provider_id=self.config.ocr_provider)
             if overlay not in self.overlays:

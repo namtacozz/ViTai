@@ -1,5 +1,5 @@
 import os
-import pickle
+import json
 import re
 import sys
 from pathlib import Path
@@ -17,7 +17,7 @@ def get_rag_dir() -> Path:
 def get_rag_context(query: str, top_k: int = 4) -> str:
     """Returns top_k chunks of text from the BM25 index that match the query."""
     rag_dir = get_rag_dir()
-    index_path = rag_dir / "bm25_index.pkl"
+    index_path = rag_dir / "bm25_index.json"
     
     
     current_pdf_info = {p.name: p.stat().st_size for p in rag_dir.glob("*.pdf")}
@@ -26,27 +26,25 @@ def get_rag_context(query: str, top_k: int = 4) -> str:
         _build_index(rag_dir, index_path, current_pdf_info)
     else:
         try:
-            with open(index_path, "rb") as f:
-                data = pickle.load(f)
+            data = _load_index(index_path)
             # Check if PDFs have changed
             if data.get("pdf_info") != current_pdf_info:
                 _build_index(rag_dir, index_path, current_pdf_info)
-                with open(index_path, "rb") as f:
-                    data = pickle.load(f)
+                data = _load_index(index_path)
         except Exception:
-            # If pickle is corrupted or old format, rebuild
+            # If index is corrupted or old format, rebuild
             _build_index(rag_dir, index_path, current_pdf_info)
             try:
-                with open(index_path, "rb") as f:
-                    data = pickle.load(f)
+                data = _load_index(index_path)
             except Exception:
                 return ""
 
     try:
-        bm25 = data.get("bm25")
         chunks = data.get("chunks", [])
-        if not bm25 or not chunks:
+        tokenized_chunks = data.get("tokenized_chunks", [])
+        if not chunks or not tokenized_chunks:
             return ""
+        bm25 = BM25Okapi(tokenized_chunks)
         
         tokenized_query = re.findall(r'\w+', query.lower())
         if not tokenized_query:
@@ -57,6 +55,10 @@ def get_rag_context(query: str, top_k: int = 4) -> str:
     except Exception as e:
         print(f"Error reading RAG index: {e}")
         return ""
+
+def _load_index(index_path: Path) -> dict:
+    return json.loads(index_path.read_text(encoding="utf-8"))
+
 
 def _build_index(rag_dir: Path, index_path: Path, pdf_info: dict) -> None:
     rag_dir.mkdir(parents=True, exist_ok=True)
@@ -96,12 +98,12 @@ def _build_index(rag_dir: Path, index_path: Path, pdf_info: dict) -> None:
 
     # Tokenize
     tokenized_chunks = [re.findall(r'\w+', chunk.lower()) for chunk in all_chunks]
-    bm25 = BM25Okapi(tokenized_chunks)
-    
-    with open(index_path, "wb") as f:
-        pickle.dump({
-            "bm25": bm25, 
+    index_path.write_text(
+        json.dumps({
             "chunks": all_chunks,
-            "pdf_info": pdf_info
-        }, f)
+            "tokenized_chunks": tokenized_chunks,
+            "pdf_info": pdf_info,
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
     print("RAG index built successfully.")

@@ -60,7 +60,7 @@ TRANSLATOR_PROVIDERS = [
 ]
 
 CAPTURE_PROVIDERS = [("MSS", "mss"), ("DXCam", "dxcam")]
-OCR_PROVIDERS = [("EasyOCR", "easyocr"), ("PaddleOCR", "paddleocr")]
+OCR_PROVIDERS = [("Windows OCR", "windows"), ("EasyOCR", "easyocr"), ("PaddleOCR", "paddleocr")]
 HOTKEY_BACKENDS = [("Auto", "auto"), ("pynput", "pynput"), ("Win32", "win32")]
 
 LLM_PROVIDERS = [

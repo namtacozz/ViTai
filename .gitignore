@@ -7,3 +7,7 @@ dist/
 build/
 *.spec
 *.log
+docs/bm25_index.*
+dist_release/
+build_release/
+ViTai_Release.zip
