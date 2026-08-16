@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import urllib.request
 import urllib.error
 
 from vitai.rag import get_rag_context
+
+_log = logging.getLogger("vitai.llm")
 
 GENERAL_SYSTEM_PROMPT = """Chỉ đưa ra câu trả lời trực tiếp ngắn gọn nhất có thể, đi thẳng vào đáp án. KHÔNG giải thích, KHÔNG chào hỏi, KHÔNG dài dòng."""
 
@@ -28,17 +31,21 @@ class LlmClient:
         self.model = model
 
     def ask(self, question: str, is_mcq: bool) -> str:
+        _log.info(f"[LLM] Bắt đầu gọi AI (provider='{self.provider}', model='{self.model}', mcq={is_mcq})")
+        _log.info(f"[LLM] Câu hỏi ({len(question)} chars): '{question[:70]}...'")
+
         context = get_rag_context(question)
+        if context:
+            _log.info(f"[LLM] Đã nạp context RAG ({len(context)} chars)")
+
         sys_prompt = system_prompt_for(is_mcq, context)
         
         if self.provider == "anthropic":
             return self._ask_anthropic(question, sys_prompt)
         elif self.provider == "gemini":
             return self._ask_gemini(question, sys_prompt)
-        elif self.provider in ["openai", "deepseek"]:
-            return self._ask_openai_compatible(question, sys_prompt)
         else:
-            raise ValueError(f"Unknown provider: {self.provider}")
+            return self._ask_openai_compatible(question, sys_prompt)
 
     def _ask_anthropic(self, question: str, sys_prompt: str) -> str:
         data = {
@@ -48,11 +55,13 @@ class LlmClient:
             "messages": [{"role": "user", "content": question.strip()}],
         }
         headers = {
-            "x-api-key": self.api_key,
+            "x-api-key": self.api_key or "dummy_key",
             "anthropic-version": "2023-06-01",
             "content-type": "application/json"
         }
-        return self._make_request(f"{self.base_url}/messages", data, headers, self._extract_anthropic)
+        url = f"{self.base_url}/messages"
+        _log.info(f"[LLM] Gửi request Anthropic tới: {url}")
+        return self._make_request(url, data, headers, self._extract_anthropic)
 
     def _ask_openai_compatible(self, question: str, sys_prompt: str) -> str:
         data = {
@@ -64,10 +73,12 @@ class LlmClient:
             ],
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.api_key or 'dummy_key'}",
             "content-type": "application/json"
         }
-        return self._make_request(f"{self.base_url}/chat/completions", data, headers, self._extract_openai)
+        url = f"{self.base_url}/chat/completions"
+        _log.info(f"[LLM] Gửi request OpenAI-compatible tới: {url}")
+        return self._make_request(url, data, headers, self._extract_openai)
 
     def _ask_gemini(self, question: str, sys_prompt: str) -> str:
         data = {
@@ -83,6 +94,7 @@ class LlmClient:
         }
         headers = {"content-type": "application/json"}
         url = f"{self.base_url}/models/{self.model}:generateContent?key={self.api_key}"
+        _log.info(f"[LLM] Gửi request Gemini tới: {self.base_url}/models/{self.model}:generateContent")
         return self._make_request(url, data, headers, self._extract_gemini)
 
     def _make_request(self, url: str, data: dict, headers: dict, extractor) -> str:
@@ -95,48 +107,31 @@ class LlmClient:
         try:
             with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read().decode("utf-8"))
-                return extractor(result)
+                answer = extractor(result)
+                _log.info(f"[LLM] ✅ AI phản hồi thành công: '{answer[:60]}...'")
+                return answer
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8', errors='ignore')
+            _log.error(f"[LLM] ❌ HTTP Error {e.code}: {error_body}")
             raise RuntimeError(f"HTTP {e.code}: {error_body}")
         except Exception as e:
-            raise RuntimeError(f"Lỗi API: {str(e)}")
+            _log.error(f"[LLM] ❌ Lỗi kết nối: {e}")
+            raise RuntimeError(str(e))
 
-    def _extract_anthropic(self, response: dict) -> str:
-        # Standard Anthropic format
-        content = response.get("content")
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    return block.get("text", "").strip()
-        elif isinstance(content, str):
-            return content.strip()
-            
-        # Fallback to OpenAI format (sometimes 9Router uses this)
-        choices = response.get("choices", [])
-        if choices and isinstance(choices, list):
-            message = choices[0].get("message", {})
-            if isinstance(message, dict):
-                return message.get("content", "").strip()
-                
-        # Generic fallback
-        if "text" in response:
-            return str(response["text"]).strip()
-            
-        return ""
+    def _extract_anthropic(self, result: dict) -> str:
+        try:
+            return result["content"][0]["text"].strip()
+        except (KeyError, IndexError):
+            return str(result)
 
-    def _extract_openai(self, response: dict) -> str:
-        choices = response.get("choices", [])
-        if choices and isinstance(choices, list):
-            message = choices[0].get("message", {})
-            if isinstance(message, dict):
-                return message.get("content", "").strip()
-        return ""
-        
-    def _extract_gemini(self, response: dict) -> str:
-        candidates = response.get("candidates", [])
-        if candidates and isinstance(candidates, list):
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if parts and isinstance(parts, list):
-                return parts[0].get("text", "").strip()
-        return ""
+    def _extract_openai(self, result: dict) -> str:
+        try:
+            return result["choices"][0]["message"]["content"].strip()
+        except (KeyError, IndexError):
+            return str(result)
+
+    def _extract_gemini(self, result: dict) -> str:
+        try:
+            return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except (KeyError, IndexError):
+            return str(result)

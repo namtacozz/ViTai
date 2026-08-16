@@ -5,21 +5,72 @@ import ctypes
 import logging
 import sys
 import threading
+import time
 
 from pynput import keyboard
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger("vitai.hotkey")
 
 
 class _PynputHotkeyBackend:
-    def __init__(self, combo: str, callback: Callable[[], None]):
-        self._listener = keyboard.GlobalHotKeys({combo: callback})
+    def __init__(self, modifier: str, key: str, callback: Callable[[], None]):
+        self._modifier_str = modifier.lower()
+        self._target_key_str = key.lower()
+        self._callback = callback
+        self._pressed_keys: set[str] = set()
+        self._last_trigger_time = 0.0
+        self._listener: keyboard.Listener | None = None
 
     def start(self) -> None:
+        _LOGGER.info(f"[HOTKEY] Pynput listener khởi động: lắng nghe {self._modifier_str}+{self._target_key_str}")
+        self._listener = keyboard.Listener(
+            on_press=self._on_press,
+            on_release=self._on_release,
+        )
         self._listener.start()
 
     def stop(self) -> None:
-        self._listener.stop()
+        if self._listener is not None:
+            self._listener.stop()
+            self._listener = None
+
+    def _canonical(self, key) -> str:
+        if isinstance(key, keyboard.KeyCode):
+            if key.char:
+                return key.char.lower()
+            if hasattr(key, 'vk') and key.vk:
+                if 65 <= key.vk <= 90:
+                    return chr(key.vk).lower()
+            return str(key).lower()
+        if key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
+            return "alt"
+        if key in (keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            return "ctrl"
+        if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+            return "shift"
+        return str(key).lower()
+
+    def _on_press(self, key) -> None:
+        name = self._canonical(key)
+        self._pressed_keys.add(name)
+
+        if self._check_match():
+            now = time.time()
+            if now - self._last_trigger_time > 0.4:
+                self._last_trigger_time = now
+                _LOGGER.info(f"[HOTKEY] ✅ Phát hiện phím tắt: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
+                self._callback()
+
+    def _on_release(self, key) -> None:
+        name = self._canonical(key)
+        self._pressed_keys.discard(name)
+
+    def _check_match(self) -> bool:
+        mods = [m.strip().lower() for m in self._modifier_str.split("+")]
+        for m in mods:
+            if m not in self._pressed_keys:
+                return False
+        return self._target_key_str in self._pressed_keys
 
 
 class _Win32HotkeyBackend:
@@ -31,13 +82,14 @@ class _Win32HotkeyBackend:
     }
     WM_HOTKEY = 0x0312
 
-    def __init__(self, combo: str, callback: Callable[[], None]):
+    def __init__(self, modifier: str, key: str, callback: Callable[[], None]):
         if sys.platform != "win32":
             raise RuntimeError("Win32 hotkey backend is only available on Windows")
         self._callback = callback
         self._hotkey_id = 1
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        combo = f"{modifier}+{key}"
         self._modifier, self._key_code = self._parse_combo(combo)
 
     def start(self) -> None:
@@ -88,14 +140,13 @@ class HotkeyManager:
         self._backend: _PynputHotkeyBackend | _Win32HotkeyBackend | None = None
 
     def start(self) -> None:
-        combo = self._build_combo_string()
-        self._backend = self._create_backend(combo)
+        self._backend = self._create_backend()
         try:
             self._backend.start()
         except Exception as exc:
             if isinstance(self._backend, _Win32HotkeyBackend):
                 _LOGGER.warning("Win32 hotkey backend failed on start, falling back to pynput: %s", exc)
-                self._backend = _PynputHotkeyBackend(combo, self._callback)
+                self._backend = _PynputHotkeyBackend(self._modifier, self._key, self._callback)
                 self._backend.start()
             else:
                 raise
@@ -118,18 +169,13 @@ class HotkeyManager:
         parts = self._modifier.split("+")
         return "+".join(p.strip().capitalize() for p in parts) + f"+{self._key.upper()}"
 
-    def _build_combo_string(self) -> str:
-        parts = self._modifier.split("+")
-        prefix = "+".join(f"<{p.strip()}>" for p in parts)
-        return f"{prefix}+{self._key}"
-
-    def _create_backend(self, combo: str):
+    def _create_backend(self):
         if self._backend_id == "pynput":
-            return _PynputHotkeyBackend(combo, self._callback)
+            return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
         if self._backend_id in {"auto", "win32"}:
             try:
-                return _Win32HotkeyBackend(combo, self._callback)
+                return _Win32HotkeyBackend(self._modifier, self._key, self._callback)
             except Exception as exc:
                 _LOGGER.warning("Win32 hotkey backend failed, falling back to pynput: %s", exc)
-                return _PynputHotkeyBackend(combo, self._callback)
-        return _PynputHotkeyBackend(combo, self._callback)
+                return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
+        return _PynputHotkeyBackend(self._modifier, self._key, self._callback)

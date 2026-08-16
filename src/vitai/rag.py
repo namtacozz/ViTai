@@ -4,8 +4,16 @@ import re
 import sys
 from pathlib import Path
 
-import fitz  # PyMuPDF
-from rank_bm25 import BM25Okapi
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
+
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    BM25Okapi = None
+
 
 def get_rag_dir() -> Path:
     if getattr(sys, 'frozen', False):
@@ -14,94 +22,84 @@ def get_rag_dir() -> Path:
         base_dir = Path(os.getcwd())
     return base_dir / "docs"
 
+
 def get_rag_context(query: str, top_k: int = 4) -> str:
     """Returns top_k chunks of text from the BM25 index that match the query."""
-    rag_dir = get_rag_dir()
-    index_path = rag_dir / "bm25_index.pkl"
-    
-    
-    current_pdf_info = {p.name: p.stat().st_size for p in rag_dir.glob("*.pdf")}
-    
-    if not index_path.exists():
-        _build_index(rag_dir, index_path, current_pdf_info)
-    else:
-        try:
-            with open(index_path, "rb") as f:
-                data = pickle.load(f)
-            # Check if PDFs have changed
-            if data.get("pdf_info") != current_pdf_info:
-                _build_index(rag_dir, index_path, current_pdf_info)
-                with open(index_path, "rb") as f:
-                    data = pickle.load(f)
-        except Exception:
-            # If pickle is corrupted or old format, rebuild
-            _build_index(rag_dir, index_path, current_pdf_info)
-            try:
-                with open(index_path, "rb") as f:
-                    data = pickle.load(f)
-            except Exception:
-                return ""
-
-    try:
-        bm25 = data.get("bm25")
-        chunks = data.get("chunks", [])
-        if not bm25 or not chunks:
-            return ""
-        
-        tokenized_query = re.findall(r'\w+', query.lower())
-        if not tokenized_query:
-            return ""
-            
-        top_chunks = bm25.get_top_n(tokenized_query, chunks, n=top_k)
-        return "\n\n".join(top_chunks)
-    except Exception as e:
-        print(f"Error reading RAG index: {e}")
+    if fitz is None or BM25Okapi is None:
         return ""
 
-def _build_index(rag_dir: Path, index_path: Path, pdf_info: dict) -> None:
-    rag_dir.mkdir(parents=True, exist_ok=True)
+    rag_dir = get_rag_dir()
+    if not rag_dir.exists():
+        return ""
+
+    index_path = rag_dir / "bm25_index.pkl"
+    current_pdf_info = {p.name: p.stat().st_size for p in rag_dir.glob("*.pdf")}
+    if not current_pdf_info:
+        return ""
+
+    if not index_path.exists():
+        return build_bm25_index(rag_dir, index_path)
+
+    try:
+        with open(index_path, "rb") as f:
+            data = pickle.load(f)
+            if data.get("pdf_info") != current_pdf_info:
+                return build_bm25_index(rag_dir, index_path)
+            bm25 = data["bm25"]
+            chunks = data["chunks"]
+    except Exception:
+        return build_bm25_index(rag_dir, index_path)
+
+    tokenized_query = re.findall(r"\w+", query.lower())
+    if not tokenized_query:
+        return ""
+
+    scores = bm25.get_scores(tokenized_query)
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    results = []
+    for idx in top_indices:
+        if scores[idx] > 0:
+            results.append(chunks[idx])
+
+    return "\n\n".join(results)
+
+
+def build_bm25_index(rag_dir: Path, index_path: Path) -> str:
+    if fitz is None or BM25Okapi is None:
+        return ""
+
     pdf_files = list(rag_dir.glob("*.pdf"))
     if not pdf_files:
-        if index_path.exists():
-            index_path.unlink()
-        return
+        return ""
 
-    print("Building RAG index. This may take a moment...")
-    all_chunks = []
+    chunks = []
+    pdf_info = {p.name: p.stat().st_size for p in pdf_files}
+
     for pdf_path in pdf_files:
         try:
             doc = fitz.open(pdf_path)
-            text = ""
             for page in doc:
-                text += page.get_text() + "\n"
-                
-            paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
-            current_chunk = []
-            current_len = 0
-            for p in paragraphs:
-                words = p.split()
-                if current_len + len(words) > 300 and current_chunk:
-                    all_chunks.append(" ".join(current_chunk))
-                    current_chunk = []
-                    current_len = 0
-                current_chunk.append(p)
-                current_len += len(words)
-            if current_chunk:
-                all_chunks.append(" ".join(current_chunk))
-        except Exception as e:
-            print(f"Failed to process {pdf_path}: {e}")
+                text = page.get_text()
+                lines = [line.strip() for line in text.split("\n") if line.strip()]
+                page_text = " ".join(lines)
+                for i in range(0, len(page_text), 500):
+                    chunk = page_text[i:i + 500]
+                    if len(chunk) > 50:
+                        chunks.append(chunk)
+        except Exception:
+            continue
 
-    if not all_chunks:
-        return
+    if not chunks:
+        return ""
 
-    # Tokenize
-    tokenized_chunks = [re.findall(r'\w+', chunk.lower()) for chunk in all_chunks]
-    bm25 = BM25Okapi(tokenized_chunks)
-    
-    with open(index_path, "wb") as f:
-        pickle.dump({
-            "bm25": bm25, 
-            "chunks": all_chunks,
-            "pdf_info": pdf_info
-        }, f)
-    print("RAG index built successfully.")
+    corpus = [re.findall(r"\w+", chunk.lower()) for chunk in chunks]
+    bm25 = BM25Okapi(corpus)
+
+    try:
+        with open(index_path, "wb") as f:
+            pickle.dump({"bm25": bm25, "chunks": chunks, "pdf_info": pdf_info}, f)
+    except Exception:
+        pass
+
+    return ""
