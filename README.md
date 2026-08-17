@@ -39,7 +39,7 @@ Bước sang phiên bản **v3.0.0**, ViTai được tái cấu trúc toàn di�
 | ⌨️ **Phím tắt Menu Cài Đặt `Ctrl + Alt + V`** | Bật/tắt cửa sổ Cài đặt ("Vì Người Tài") bất kỳ lúc nào một cách bí mật thông qua phím tắt toàn cục. |
 | ⚡ **Fast Mode (Zero-Hotkey)** | Tự động phân tích câu hỏi ngay khi người dùng vừa bôi đen và nhả chuột xong (debounce 0.75s). Không cần chạm tay vào bàn phím. |
 | 🎨 **State-Aware UI & Unsaved Protection** | Giao diện cài đặt hiện đại 2 thẻ chính (**"Vỏ"** & **"Lõi"**), tích hợp huy hiệu trạng thái `● Chưa lưu` / `✓ Đã lưu` và hộp thoại cảnh báo chống mất dữ liệu khi đóng cửa sổ. |
-| 🔐 **Nhật Ký Bảo Mật Admin** | Thẻ **Nhật Ký** hoạt động được ẩn mặc định. Mở khóa bí mật bằng cách nhấn 3 lần liên tiếp vào logo **ViTai** và nhập mật khẩu Admin (`vinguoitai / vit24052005`). |
+| 🔐 **Nhật Ký Bảo Mật Admin** | Thẻ **Nhật Ký** hoạt động được ẩn mặc định. Mở khóa bí mật bằng cách nhấn 3 lần liên tiếp vào logo **ViTai** và nhập mật khẩu Admin. |
 | 🤖 **Local AI Proxy Gateway (Port 14555)** | Tích hợp sẵn máy chủ Gateway cục bộ, hỗ trợ OpenAI Codex Subscription (GPT-5.5 / GPT-5 mini), 9Router, Google Gemini và Kiro AI (AWS Builder ID). |
 | 💾 **Bộ nhớ đệm Smart Answer Cache** | Lưu tạm kết quả các câu hỏi đã quét giúp phản hồi tức thì (**0ms**) khi gặp lại câu hỏi trùng khớp. |
 
