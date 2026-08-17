@@ -103,7 +103,6 @@ flowchart LR
 
 3. **Mở khóa thẻ "Nhật Ký" (Dành cho Quản Trị)**:
    - Trong cửa sổ Cài đặt, **nhấn nhanh 3 lần liên tiếp** vào logo **ViTai** ở góc trên bên trái thanh điều hướng.
-   - Nhập tài khoản: `vinguoitai` / Mật khẩu: `vit24052005`.
    - Thẻ **Nhật Ký** sẽ hiện ra cho phép theo dõi toàn bộ luồng hoạt động, request AI và log hệ thống thời gian thực.
 
 ---
