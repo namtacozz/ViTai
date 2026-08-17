@@ -9,6 +9,7 @@ from pathlib import Path
 class AppConfig:
     provider: str = "9router"
     api_key: str = ""
+    auth_method: str = "api_key"
     base_url: str = "https://9router.com/v1"
     model: str = "gemini-2.5-flash"
     hotkey_modifier: str = "alt"
@@ -20,6 +21,7 @@ class AppConfig:
     text_color: str = "#E0E0E0"
     auto_translate: bool = False
     cache_enabled: bool = True
+    theme: str = "dark"
 
 
 def default_config_path() -> Path:

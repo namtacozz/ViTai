@@ -26,9 +26,9 @@ cp README.md dist/ViTai/ 2>/dev/null || true
 
 echo "📦 Tạo file nén Release..."
 cd dist
-tar -czvf "ViTai-v2.0.0-linux-fedora-x86_64.tar.gz" ViTai
+tar -czvf "ViTai-v3.0.0-linux-fedora-x86_64.tar.gz" ViTai
 cd ..
 
 echo "✅ Build hoàn tất!"
 echo "📍 Thư mục binary: dist/ViTai/ViTai"
-echo "🎁 File Release:   dist/ViTai-v2.0.0-linux-fedora-x86_64.tar.gz"
+echo "🎁 File Release:   dist/ViTai-v3.0.0-linux-fedora-x86_64.tar.gz"

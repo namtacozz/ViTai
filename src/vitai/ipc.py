@@ -20,7 +20,16 @@ def get_socket_path() -> Path:
 
 
 def send_trigger() -> bool:
-    """Gửi tín hiệu TRIGGER tới tiến trình ViTai đang chạy."""
+    """Gửi tín hiệu TRIGGER tới tiến trình Vì Người Tài đang chạy."""
+    return _send_ipc_message(b"TRIGGER\n")
+
+
+def send_menu_trigger() -> bool:
+    """Gửi tín hiệu MENU tới tiến trình Vì Người Tài đang chạy để bật/tắt cửa sổ Cài đặt."""
+    return _send_ipc_message(b"MENU\n")
+
+
+def _send_ipc_message(msg: bytes) -> bool:
     sock_path = get_socket_path()
     if not sock_path.exists():
         return False
@@ -29,19 +38,20 @@ def send_trigger() -> bool:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(2.0)
         sock.connect(str(sock_path))
-        sock.sendall(b"TRIGGER\n")
+        sock.sendall(msg)
         sock.close()
         return True
     except Exception as e:
-        _log.warning(f"[IPC] Gửi trigger thất bại: {e}")
+        _log.warning(f"[IPC] Gửi IPC command thất bại: {e}")
         return False
 
 
 class IpcServer:
-    """Unix domain socket server để nhận lệnh trigger từ bên ngoài (như GNOME Shortcuts)."""
+    """Unix domain socket server để nhận lệnh trigger và menu từ bên ngoài (như GNOME Shortcuts)."""
 
-    def __init__(self, on_trigger_callback):
+    def __init__(self, on_trigger_callback, on_menu_callback=None):
         self.on_trigger = on_trigger_callback
+        self.on_menu = on_menu_callback
         self.sock_path = get_socket_path()
         self.server_sock: socket.socket | None = None
         self.running = False
@@ -73,8 +83,12 @@ class IpcServer:
                 data = conn.recv(128).decode("utf-8", errors="ignore").strip()
                 conn.close()
                 if data == "TRIGGER":
-                    _log.info("[IPC] 🔔 Nhận tín hiệu TRIGGER từ Socket (Hệ thống/GNOME Phím tắt)")
+                    _log.info("[IPC] 🔔 Nhận tín hiệu TRIGGER từ Socket")
                     self.on_trigger()
+                elif data in ("MENU", "SETTINGS"):
+                    _log.info("[IPC] ⚙️ Nhận tín hiệu MENU/SETTINGS từ Socket")
+                    if self.on_menu:
+                        self.on_menu()
             except Exception:
                 if not self.running:
                     break

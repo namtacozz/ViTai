@@ -12,26 +12,49 @@ from pathlib import Path
 from pynput import mouse
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QAction, QCursor, QIcon
-from PyQt6.QtWidgets import QApplication, QInputDialog, QMenu, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QInputDialog
 
 from vitai.capture import get_selected_text
 from vitai.config import AppConfig, default_config_path, load_config, save_config
 from vitai.encoding import configure_utf8_stdio
-from vitai.gnome_shortcuts import register_gnome_hotkey, unregister_gnome_hotkey
+from vitai.gnome_shortcuts import register_gnome_hotkey, register_gnome_menu_hotkey, unregister_gnome_hotkey
 from vitai.hotkey import HotkeyManager
-from vitai.ipc import IpcServer, send_trigger
+from vitai.ipc import IpcServer, send_trigger, send_menu_trigger
 from vitai.logging_config import configure_logging
 from vitai.mcq import is_mcq, normalize_mcq_answer
-from vitai.mouse_tracker import get_mouse_position, start_mouse_tracker
+from vitai.mouse_tracker import (
+    get_last_selection_end_pos,
+    get_mouse_position,
+    register_click_callback,
+    start_mouse_tracker,
+)
 from vitai.overlay import AnswerOverlay
 from vitai.resources import resource_path
 from vitai.selection_watcher import SelectionWatcher
 from vitai.settings import SettingsWindow
 from vitai.startup import install_linux_desktop_file, set_startup
 from vitai.ui_log import install_ui_logging
-from dotenv import load_dotenv
 
 configure_utf8_stdio()
+
+
+def _load_env_file(env_path: Path) -> None:
+    try:
+        from dotenv import load_dotenv  # type: ignore
+        load_dotenv(dotenv_path=env_path)
+    except Exception:
+        if env_path.is_file():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
 
 
 def set_windows_app_id() -> None:
@@ -41,6 +64,7 @@ def set_windows_app_id() -> None:
 
 class UiBridge(QObject):
     hotkey_pressed = pyqtSignal()
+    menu_hotkey_pressed = pyqtSignal()
     answer_ready = pyqtSignal(str)
     hide_overlay_if_outside_ready = pyqtSignal(int, int)
 
@@ -52,12 +76,12 @@ class ViTaiApp:
         else:
             base_dir = Path(os.getcwd())
         env_path = base_dir / ".env"
-        load_dotenv(dotenv_path=env_path)
+        _load_env_file(env_path)
 
         configure_logging()
         install_ui_logging()
         self.logger = logging.getLogger("vitai.main")
-        self.logger.info("ViTai starting")
+        self.logger.info("Vì Người Tài starting")
         self._install_exception_hooks()
         install_linux_desktop_file()
 
@@ -65,15 +89,19 @@ class ViTaiApp:
         self.config = self._load_config_with_env()
         set_windows_app_id()
 
+        if sys.platform.startswith("linux") and "QT_QPA_PLATFORM" not in os.environ:
+            os.environ["QT_QPA_PLATFORM"] = "xcb"
+
         self.qt_app = QApplication(sys.argv)
-        self.qt_app.setApplicationName("ViTai")
-        self.qt_app.setApplicationDisplayName("ViTai")
+        self.qt_app.setApplicationName("Vì Người Tài")
+        self.qt_app.setApplicationDisplayName("Vì Người Tài")
         self.qt_app.setDesktopFileName("vitai")
         self.qt_app.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         self.qt_app.setQuitOnLastWindowClosed(False)
 
         self.bridge = UiBridge()
         self.bridge.hotkey_pressed.connect(self.handle_hotkey)
+        self.bridge.menu_hotkey_pressed.connect(self.toggle_settings)
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_overlay_if_outside_ready.connect(self.hide_overlay_if_outside)
 
@@ -85,30 +113,86 @@ class ViTaiApp:
         self.selection_anchor: tuple[int, int] | None = None
         self.mouse_listener: mouse.Listener | None = None
 
-        self.tray = self._create_tray()
-        
-        # 1. Hotkey qua pynput (hoạt động tốt trên Windows/X11)
+        # 1. Hotkey Answer Trigger qua pynput (hoạt động tốt trên Windows/X11)
         self.hotkey_manager = HotkeyManager(
             self.config.hotkey_modifier,
             self.config.hotkey_key,
             self._emit_hotkey,
             backend=self.config.hotkey_backend,
         )
+
+        # 2. Hotkey Menu Settings (Ctrl + Alt + V) để bật/tắt cửa sổ menu hoàn toàn ẩn tàng
+        self.menu_hotkey_manager = HotkeyManager(
+            "ctrl+alt",
+            "v",
+            self._emit_menu_hotkey,
+            backend=self.config.hotkey_backend,
+        )
         
-        # 2. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME)
-        self.ipc_server = IpcServer(self._emit_hotkey)
+        # 3. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME)
+        self.ipc_server = IpcServer(self._emit_hotkey, on_menu_callback=self._emit_menu_hotkey)
         self.ipc_server.start()
         register_gnome_hotkey(self.config.hotkey_modifier, self.config.hotkey_key)
+        register_gnome_menu_hotkey("ctrl+alt", "v")
 
-        # 3. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
+        # 4. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
         self.watcher = SelectionWatcher(self._start_answer_request)
         self.watcher.start()
         self.watcher.set_enabled(self.config.auto_translate)
 
-        # 4. Kernel Mouse Tracker (cho Wayland/Linux)
+        # 5. Kernel Mouse Tracker (cho Wayland/Linux)
+        register_click_callback(self._on_kernel_mouse_click)
         start_mouse_tracker()
 
+        # 6. Background proactive OAuth token refresher
+        self._start_token_refresh_timer()
+
+        # 7. Local AI Proxy Server (OpenAI-compatible & Subs Router on port 14555)
+        from vitai.proxy import get_local_proxy
+        self.local_proxy = get_local_proxy()
+        self.local_proxy.start()
+
         set_startup(self.config.start_with_windows)
+
+    def _start_token_refresh_timer(self) -> None:
+        def _refresh_worker():
+            import time
+            from vitai.oauth_provider import refresh_oauth_token
+            from vitai.token_store import get_token_store
+
+            store = get_token_store()
+            for provider, token in list(store._tokens.items()):
+                if token.refresh_token and token.is_expired(buffer_seconds=300):
+                    try:
+                        self.logger.info(f"[OAuth] Proactively refreshing token for '{provider}'...")
+                        new_token = refresh_oauth_token(token)
+                        store.save_token(new_token)
+                        self.logger.info(f"[OAuth] Successfully refreshed token for '{provider}'")
+                    except Exception as e:
+                        self.logger.warning(f"[OAuth] Could not refresh token for '{provider}': {e}")
+
+        timer = threading.Timer(600.0, self._schedule_token_refresh)
+        timer.daemon = True
+        timer.start()
+
+    def _schedule_token_refresh(self) -> None:
+        try:
+            from vitai.oauth_provider import refresh_oauth_token
+            from vitai.token_store import get_token_store
+
+            store = get_token_store()
+            for provider, token in list(store._tokens.items()):
+                if token.refresh_token and token.is_expired(buffer_seconds=300):
+                    try:
+                        self.logger.info(f"[OAuth] Refreshing token for '{provider}'...")
+                        new_token = refresh_oauth_token(token)
+                        store.save_token(new_token)
+                    except Exception as e:
+                        self.logger.warning(f"[OAuth] Failed to refresh token for '{provider}': {e}")
+        finally:
+            timer = threading.Timer(600.0, self._schedule_token_refresh)
+            timer.daemon = True
+            timer.start()
 
     def _load_config_with_env(self) -> AppConfig:
         config = load_config(self.config_path)
@@ -150,28 +234,25 @@ class ViTaiApp:
 
         sys.excepthook = _excepthook
 
-    def _create_tray(self) -> QSystemTrayIcon:
-        tray = QSystemTrayIcon(QIcon(str(resource_path("assets/icon.ico"))), self.qt_app)
-        tray.setToolTip("ViTai — AI Assistant")
-        menu = QMenu()
-        settings_action = QAction("⚙️ Cài đặt", menu)
-        settings_action.triggered.connect(self.show_settings)
-        quit_action = QAction("❌ Thoát", menu)
-        quit_action.triggered.connect(self.quit)
-        menu.addAction(settings_action)
-        menu.addAction(quit_action)
-        tray.setContextMenu(menu)
-        tray.activated.connect(self._tray_activated)
-        tray.show()
-        return tray
+    def _emit_menu_hotkey(self) -> None:
+        self.bridge.menu_hotkey_pressed.emit()
 
-    def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason in (
-            QSystemTrayIcon.ActivationReason.DoubleClick,
-            QSystemTrayIcon.ActivationReason.Trigger,
-            QSystemTrayIcon.ActivationReason.MiddleClick,
-        ):
-            self.show_settings()
+    def toggle_settings(self) -> None:
+        if self.settings_window is None:
+            self.settings_window = SettingsWindow(self.config)
+            self.settings_window.config_changed.connect(self._on_config_changed)
+            self.settings_window.exit_requested.connect(self.quit)
+        
+        if self.settings_window.isVisible():
+            if hasattr(self.settings_window, "_maybe_confirm_close"):
+                if self.settings_window._maybe_confirm_close():
+                    self.settings_window.hide()
+            else:
+                self.settings_window.hide()
+        else:
+            self.settings_window.show()
+            self.settings_window.raise_()
+            self.settings_window.activateWindow()
 
     def show_settings(self) -> None:
         if self.settings_window is None:
@@ -217,12 +298,19 @@ class ViTaiApp:
     def _start_answer_request(self) -> None:
         threading.Thread(target=self._process_selection, daemon=True).start()
 
-    def _on_mouse_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
-        if button != mouse.Button.left:
-            return
+    def _on_kernel_mouse_click(self, x: int, y: int, pressed: bool) -> None:
         if pressed:
-            self.mouse_press_pos = (x, y)
             self.bridge.hide_overlay_if_outside_ready.emit(x, y)
+        else:
+            self.selection_anchor = (x, y)
+
+    def _on_mouse_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
+        if pressed:
+            self.bridge.hide_overlay_if_outside_ready.emit(x, y)
+            if button == mouse.Button.left:
+                self.mouse_press_pos = (x, y)
+            return
+        if button != mouse.Button.left:
             return
         start = self.mouse_press_pos
         self.mouse_press_pos = None
@@ -251,12 +339,17 @@ class ViTaiApp:
                 self.bridge.answer_ready.emit(cached_ans)
                 return
 
+            from vitai.token_store import get_token_store
+            token_store = get_token_store()
+
             api_key = self.config.api_key
-            if not api_key:
-                if self.config.provider == "9router":
+            is_oauth_auth = token_store.is_authenticated(self.config.provider)
+
+            if not api_key and not is_oauth_auth:
+                if self.config.provider in ("9router", "openrouter"):
                     api_key = "dummy_free_key"
                 else:
-                    self.logger.warning("[MAIN] Chưa cấu hình API Key")
+                    self.logger.warning(f"[MAIN] Chưa cấu hình API Key hoặc OAuth cho {self.config.provider}")
                     return
 
             question_is_mcq = is_mcq(selected_text)
@@ -267,6 +360,7 @@ class ViTaiApp:
                 api_key,
                 self.config.base_url,
                 self.config.model,
+                auth_method=self.config.auth_method,
             )
             self.logger.info(f"[MAIN] Gửi câu hỏi tới AI ({self.config.provider}/{self.config.model})...")
             answer = client.ask(selected_text, question_is_mcq)
@@ -289,11 +383,9 @@ class ViTaiApp:
             self.worker_lock.release()
 
     def hide_overlay_if_outside(self, x: int, y: int) -> None:
-        if self.overlay is None or not self.overlay.isVisible():
-            return
-        rect = self.overlay.geometry()
-        if not rect.contains(x, y):
-            self.overlay.close()
+        if self.overlay is not None and self.overlay.isVisible():
+            self.logger.info(f"[MAIN] 🖱️ Phát hiện click chuột tại ({x}, {y}) → Tắt Ghost Overlay")
+            self.overlay.hide_overlay()
 
     def show_answer(self, text: str, x: int | None = None, y: int | None = None) -> None:
         if not text or text.startswith("Lỗi"):
@@ -304,26 +396,36 @@ class ViTaiApp:
         else:
             self.overlay.update_config(self.config)
 
+        last_end = get_last_selection_end_pos()
         pos = get_mouse_position()
-        anchor_x = x if x is not None else (self.selection_anchor[0] if self.selection_anchor else pos[0])
-        anchor_y = y if y is not None else (self.selection_anchor[1] if self.selection_anchor else pos[1])
+        if x is not None and y is not None:
+            anchor_x, anchor_y = x, y
+        elif self.selection_anchor is not None:
+            anchor_x, anchor_y = self.selection_anchor
+        elif last_end is not None:
+            anchor_x, anchor_y = last_end
+        else:
+            anchor_x, anchor_y = pos
 
         self.logger.info(f"[MAIN] Hiển thị đáp án tại ({anchor_x}, {anchor_y}): '{text}'")
         self.overlay.show_message(text, anchor_x, anchor_y)
 
     def run(self) -> int:
         self.hotkey_manager.start()
+        self.menu_hotkey_manager.start()
         self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
         self.mouse_listener.start()
         return self.qt_app.exec()
 
     def quit(self) -> None:
+        if hasattr(self, "local_proxy") and self.local_proxy:
+            self.local_proxy.stop()
         self.watcher.stop()
         self.ipc_server.stop()
         self.hotkey_manager.stop()
+        self.menu_hotkey_manager.stop()
         if self.mouse_listener is not None:
             self.mouse_listener.stop()
-        self.tray.hide()
         self.qt_app.quit()
 
 
@@ -332,11 +434,17 @@ def main() -> int:
         if send_trigger():
             return 0
         else:
-            print("⚠️ ViTai chưa chạy. Vui lòng mở ViTai trước.")
+            print("⚠️ Vì Người Tài chưa chạy. Vui lòng mở Vì Người Tài trước.")
             return 1
 
+    if "--menu" in sys.argv or "--settings" in sys.argv:
+        if send_menu_trigger():
+            return 0
+
     app = ViTaiApp()
-    if "--settings" in sys.argv or (not app.config.api_key and app.config.provider != "9router"):
+    from vitai.token_store import get_token_store
+    is_auth = bool(app.config.api_key) or get_token_store().is_authenticated(app.config.provider) or app.config.provider in ("9router", "openrouter")
+    if "--settings" in sys.argv or "--menu" in sys.argv or not is_auth:
         app.show_settings()
     return app.run()
 
