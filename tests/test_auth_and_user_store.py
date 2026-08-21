@@ -61,7 +61,7 @@ class TestUserStoreAndHardwareLock:
         return UserStore(store_path=store_file, cloud_config=local_cfg)
 
     def test_default_admin_created(self, temp_store):
-        admin = temp_store.get_user("admin")
+        admin = temp_store.get_user("vinguoitai")
         assert admin is not None
         assert admin.role == "admin"
         assert admin.bound_mac is None
@@ -305,12 +305,12 @@ class TestLoginGateBarrier:
                 assert win.login_gate_overlay.objectName() == "loginGateOverlay"
 
                 # 2. Đăng nhập thành công qua Login Gate
-                win.gate_user_input.setText("admin")
-                win.gate_pass_input.setText("admin")
+                win.gate_user_input.setText("vinguoitai")
+                win.gate_pass_input.setText("vit24052005")
                 with patch("vitai.settings.save_session") as mock_save:
                     win._on_gate_login()
                     assert win.current_user is not None
-                    assert win.current_user.username == "admin"
+                    assert win.current_user.username == "vinguoitai"
                     assert win.login_gate_overlay.isHidden() is True
                     mock_save.assert_called_once()
 

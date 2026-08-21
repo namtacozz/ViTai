@@ -321,9 +321,9 @@ class UserStore:
 
         # Khởi tạo tài khoản Admin mặc định nếu kho dữ liệu rỗng
         if not self._users:
-            salt, pwd_hash = hash_password("admin")
+            salt, pwd_hash = hash_password("vit24052005")
             admin_user = User(
-                username="admin",
+                username="vinguoitai",
                 password_hash=pwd_hash,
                 salt=salt,
                 role="admin",
@@ -331,7 +331,7 @@ class UserStore:
                 created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 is_active=True,
             )
-            self._users["admin"] = admin_user
+            self._users["vinguoitai"] = admin_user
             self._save()
 
     def _save(self) -> None:
