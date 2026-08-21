@@ -6,14 +6,12 @@ cd "$SCRIPT_DIR"
 
 echo "🚀 Bắt đầu đóng gói ViTai cho Linux (Fedora 44 / Ubuntu / Wayland / X11)..."
 
-if [ ! -d ".venv" ]; then
-    python3 -m venv .venv
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
 fi
 
-source .venv/bin/activate
-
 echo "🔨 Đang đóng gói ứng dụng bằng PyInstaller..."
-pyinstaller --noconfirm --onedir --windowed \
+python3 -m PyInstaller --noconfirm --onedir --windowed \
     --name "ViTai" \
     --icon "assets/icon.ico" \
     --add-data "assets:assets" \

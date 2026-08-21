@@ -30,15 +30,29 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev libxtst-dev wl-clipboard
+          sudo apt-get install -y \
+            xvfb \
+            libx11-dev \
+            libxtst-dev \
+            libxkbcommon-x11-0 \
+            libegl1 \
+            libgl1 \
+            libglib2.0-0 \
+            libfontconfig1 \
+            libdbus-1-3 \
+            wl-clipboard \
+            xclip
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest evdev python-xlib
+          pip install pytest python-xlib
 
       - name: Run Pytest Suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: src
         run: |
           pytest -v
 
@@ -94,13 +108,24 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wl-clipboard libx11-dev libxtst-dev
+          sudo apt-get install -y \
+            xvfb \
+            libx11-dev \
+            libxtst-dev \
+            libxkbcommon-x11-0 \
+            libegl1 \
+            libgl1 \
+            libglib2.0-0 \
+            libfontconfig1 \
+            libdbus-1-3 \
+            wl-clipboard \
+            xclip
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller evdev python-xlib
+          pip install pyinstaller python-xlib
 
       - name: Build with PyInstaller
         run: |
@@ -142,7 +167,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ViTai-MacOS
-          path: dist/ViTai-v3.0.0-macos-*.tar.gz
+          path: dist/ViTai-v3.0.1-macos-*.tar.gz
 
   release:
     name: Publish GitHub Release
@@ -174,7 +199,7 @@ jobs:
           files: |
             release/ViTai-Windows-x64.zip
             release/ViTai-Linux-x86_64.tar.gz
-            release/ViTai-v3.0.0-macos-*.tar.gz
+            release/ViTai-v3.0.1-macos-*.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true
