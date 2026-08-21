@@ -181,3 +181,99 @@ class TestColorWheelMath:
         assert hex_code.upper() == "#E09F5E"
         assert extract_hex("#e09f5e") == "#E09F5E"
         assert extract_hex("invalid text", default="#FFFFFF") == "#FFFFFF"
+
+
+class TestCloudSync:
+    def test_cloud_config_serde(self, tmp_path):
+        from vitai.user_store import CloudConfig, load_cloud_config, save_cloud_config
+
+        cfg_file = tmp_path / "cloud_config.json"
+        cfg = CloudConfig(
+            provider="supabase",
+            supabase_url="https://test.supabase.co",
+            supabase_key="secret-anon-key-123",
+            table_name="vitai_users",
+            is_enabled=True,
+        )
+        save_cloud_config(cfg, config_path=cfg_file)
+        loaded = load_cloud_config(config_path=cfg_file)
+
+        assert loaded.is_enabled is True
+        assert loaded.provider == "supabase"
+        assert loaded.supabase_url == "https://test.supabase.co"
+        assert loaded.supabase_key == "secret-anon-key-123"
+
+    def test_cloud_auth_client_supabase_mock(self):
+        from vitai.user_store import CloudAuthClient, CloudConfig
+
+        cfg = CloudConfig(
+            provider="supabase",
+            supabase_url="https://test.supabase.co",
+            supabase_key="test-key",
+            is_enabled=True,
+        )
+        client = CloudAuthClient(cfg)
+
+        with patch.object(client, "_http_request") as mock_req:
+            # Test connection
+            mock_req.return_value = (True, [{"count": 1}], "HTTP 200")
+            ok, msg = client.test_connection()
+            assert ok is True
+            assert "thành công" in msg
+
+            # Test get user
+            mock_req.return_value = (
+                True,
+                [
+                    {
+                        "username": "emma",
+                        "password_hash": "hash123",
+                        "salt": "salt123",
+                        "role": "user",
+                        "bound_mac": "11:22:33:44:55:66",
+                        "created_at": "2026-08-21 12:00:00",
+                        "is_active": True,
+                    }
+                ],
+                "HTTP 200",
+            )
+            ok_u, user_obj, _ = client.get_user("emma")
+            assert ok_u is True
+            assert user_obj is not None
+            assert user_obj.username == "emma"
+            assert user_obj.bound_mac == "11:22:33:44:55:66"
+
+    def test_user_store_hybrid_cloud_authenticate(self, tmp_path):
+        from vitai.user_store import CloudConfig, UserStore, hash_password
+
+        store_file = tmp_path / "users.json"
+        cfg = CloudConfig(
+            provider="supabase",
+            supabase_url="https://test.supabase.co",
+            supabase_key="test-key",
+            is_enabled=True,
+        )
+        store = UserStore(store_path=store_file, cloud_config=cfg)
+
+        salt, pwd_hash = hash_password("pass123")
+        remote_user = User(
+            username="frank",
+            password_hash=pwd_hash,
+            salt=salt,
+            role="user",
+            bound_mac=None,  # Chưa bind MAC
+            created_at="2026-08-21 12:00:00",
+            is_active=True,
+        )
+
+        with patch.object(store.cloud_client, "get_user", return_value=(True, remote_user, "OK")):
+            with patch.object(store.cloud_client, "update_fields", return_value=(True, "OK")) as mock_update:
+                my_mac = "AA:11:22:33:44:99"
+                ok, user, msg = store.authenticate("frank", "pass123", client_mac=my_mac)
+                assert ok is True
+                assert user is not None
+                assert user.bound_mac == my_mac
+
+                # Đảm bảo lệnh update MAC được gửi lên Cloud
+                mock_update.assert_called_once_with("frank", {"bound_mac": my_mac})
+
