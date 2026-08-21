@@ -1,4 +1,5 @@
 import colorsys
+import math
 import re
 from typing import Optional
 
@@ -71,14 +72,14 @@ class QColorWheelWidget(QWidget):
         self._is_dragging = False
 
     def set_hsv(self, h: float, s: float, v: float) -> None:
-        self._hue = max(0.0, min(360.0, float(h)))
-        self._sat = max(0.0, min(1.0, float(s)))
-        self._val = max(0.0, min(1.0, float(v)))
+        self._hue = max(0.0, min(360.0, h))
+        self._sat = max(0.0, min(1.0, s))
+        self._val = max(0.0, min(1.0, v))
         self._wheel_image = None
         self.update()
 
     def set_value(self, v: float) -> None:
-        self._val = max(0.0, min(1.0, float(v)))
+        self._val = max(0.0, min(1.0, v))
         self._wheel_image = None
         self.update()
 
@@ -134,8 +135,8 @@ class QColorWheelWidget(QWidget):
         cy = h / 2.0
         radius = size / 2.0
 
-        if self._wheel_image is None or self._wheel_image.width() != int(size):
-            self._wheel_image = self._generate_wheel_image(int(size))
+        if self._wheel_image is None or self._wheel_image.width() != size:
+            self._wheel_image = self._generate_wheel_image(size)
 
         # Vẽ đĩa màu
         painter.drawImage(int(cx - radius), int(cy - radius), self._wheel_image)
@@ -159,17 +160,17 @@ class QColorWheelWidget(QWidget):
         painter.setPen(QPen(QColor("#FFFFFF"), 1.5))
         painter.drawEllipse(QPointF(cursor_x, cursor_y), 6, 6)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        if a0 and a0.button() == Qt.MouseButton.LeftButton:
             self._is_dragging = True
-            self._update_from_pos(event.position().x(), event.position().y())
+            self._update_from_pos(a0.position().x(), a0.position().y())
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self._is_dragging:
-            self._update_from_pos(event.position().x(), event.position().y())
+    def mouseMoveEvent(self, a0: QMouseEvent | None) -> None:
+        if a0 and self._is_dragging:
+            self._update_from_pos(a0.position().x(), a0.position().y())
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
+        if a0 and a0.button() == Qt.MouseButton.LeftButton:
             self._is_dragging = False
 
     def _update_from_pos(self, x: float, y: float) -> None:

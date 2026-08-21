@@ -1057,22 +1057,22 @@ class HotkeyInputButton(QPushButton):
         self.grabKeyboard()
         self.grabMouse()
 
-    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
-        if not a0 or not self.recording:
-            super().mousePressEvent(a0)
+    def mousePressEvent(self, e: QMouseEvent | None) -> None:
+        if not e or not self.recording:
+            super().mousePressEvent(e)
             return
 
         modifiers = []
-        if a0.modifiers() & Qt.KeyboardModifier.MetaModifier:
+        if e.modifiers() & Qt.KeyboardModifier.MetaModifier:
             modifiers.append("cmd")
-        if a0.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
             modifiers.append("ctrl")
-        if a0.modifiers() & Qt.KeyboardModifier.AltModifier:
+        if e.modifiers() & Qt.KeyboardModifier.AltModifier:
             modifiers.append("alt")
-        if a0.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+        if e.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             modifiers.append("shift")
 
-        btn = a0.button()
+        btn = e.button()
         key_name = ""
         if btn == Qt.MouseButton.RightButton:
             key_name = "mouse_right"
@@ -1095,7 +1095,7 @@ class HotkeyInputButton(QPushButton):
             self.hotkey_changed.emit(self.modifier, self.key)
             return
 
-        super().mousePressEvent(a0)
+        super().mousePressEvent(e)
 
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
         if not a0:
@@ -1759,7 +1759,7 @@ class SettingsWindow(QDialog):
         self.color_swatch.setFixedSize(30, 30)
         self.color_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
         self.color_swatch.setToolTip("Nhấn để mở Bảng màu tròn 360° (Photoshop / Aseprite style)")
-        self.color_swatch.mousePressEvent = lambda _: self._open_color_wheel()
+        self.color_swatch.mousePressEvent = lambda ev: self._open_color_wheel()
         self.color_swatch.setStyleSheet(
             "background-color: #E09F5E; border: 1px solid #3F3F46; border-radius: 6px;"
         )
@@ -2094,7 +2094,9 @@ class SettingsWindow(QDialog):
         self.admin_user_table = QTableWidget()
         self.admin_user_table.setColumnCount(5)
         self.admin_user_table.setHorizontalHeaderLabels(["Tài Khoản", "Vai Trò", "Địa Chỉ MAC Đã Khóa", "Trạng Thái", "Ngày Tạo"])
-        self.admin_user_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header = self.admin_user_table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.admin_user_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.admin_user_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         cadmin_layout.addWidget(self.admin_user_table, 1)
@@ -2206,7 +2208,8 @@ class SettingsWindow(QDialog):
         ]
         for label, mod, key in presets:
             action = menu.addAction(label)
-            action.triggered.connect(lambda _, m=mod, k=key: self._set_mouse_hotkey(m, k))
+            if action is not None:
+                action.triggered.connect(lambda _, m=mod, k=key: self._set_mouse_hotkey(m, k))
         menu.exec(self.mouse_preset_btn.mapToGlobal(self.mouse_preset_btn.rect().bottomLeft()))
 
     def _set_mouse_hotkey(self, modifier: str, key: str) -> None:
