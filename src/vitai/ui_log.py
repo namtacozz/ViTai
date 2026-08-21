@@ -49,9 +49,12 @@ def get_ui_log_handler() -> UiLogHandler:
     return _ui_handler
 
 
+from PyQt6 import sip
+
+
 def get_log_bridge() -> LogBridge:
     global _log_bridge
-    if _log_bridge is None:
+    if _log_bridge is None or sip.isdeleted(_log_bridge):
         _log_bridge = LogBridge()
         get_ui_log_handler().set_bridge(_log_bridge)
     return _log_bridge

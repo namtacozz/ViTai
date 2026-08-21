@@ -204,19 +204,27 @@ class ViTaiApp:
         if provider == "anthropic":
             api_key = os.getenv("ANTHROPIC_API_KEY", config.api_key).strip()
             base_url = os.getenv("ANTHROPIC_BASE_URL", config.base_url).strip()
-            model = os.getenv("ANTHROPIC_MODEL", config.model).strip()
+            model = os.getenv("ANTHROPIC_MODEL", "").strip() or config.model
         elif provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY", "").strip()
-            base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
-            model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+            api_key = os.getenv("OPENAI_API_KEY", config.api_key).strip()
+            base_url = os.getenv("OPENAI_BASE_URL", config.base_url or "https://chatgpt.com/backend-api/codex").strip()
+            model = os.getenv("OPENAI_MODEL", "").strip() or config.model or "cx/gpt-5.5"
         elif provider == "gemini":
-            api_key = os.getenv("GEMINI_API_KEY", "").strip()
-            base_url = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").strip()
-            model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+            api_key = os.getenv("GEMINI_API_KEY", config.api_key).strip()
+            base_url = os.getenv("GEMINI_BASE_URL", config.base_url or "https://generativelanguage.googleapis.com/v1beta").strip()
+            model = os.getenv("GEMINI_MODEL", "").strip() or config.model or "gemini-2.5-flash"
         elif provider == "deepseek":
-            api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip()
-            model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+            api_key = os.getenv("DEEPSEEK_API_KEY", config.api_key).strip()
+            base_url = os.getenv("DEEPSEEK_BASE_URL", config.base_url or "https://api.deepseek.com/v1").strip()
+            model = os.getenv("DEEPSEEK_MODEL", "").strip() or config.model or "deepseek-chat"
+        elif provider == "kiro":
+            api_key = os.getenv("KIRO_API_KEY", config.api_key).strip()
+            base_url = os.getenv("KIRO_BASE_URL", config.base_url or "https://app.kiro.ai/v1").strip()
+            model = os.getenv("KIRO_MODEL", "").strip() or config.model or "kr/claude-sonnet-4.5"
+        elif provider == "9router":
+            api_key = os.getenv("NINEROUTER_API_KEY", config.api_key).strip()
+            base_url = os.getenv("NINEROUTER_BASE_URL", config.base_url or "http://localhost:20128/v1").strip()
+            model = os.getenv("NINEROUTER_MODEL", "").strip() or config.model or "High"
         else:
             api_key = config.api_key
             base_url = config.base_url
@@ -304,6 +312,9 @@ class ViTaiApp:
 
     def handle_hotkey(self) -> None:
         self.logger.info("[MAIN] Nhận tín hiệu kích hoạt → Bắt đầu xử lý")
+        cur_pos = get_mouse_position()
+        if cur_pos and cur_pos != (0, 0):
+            self.selection_anchor = cur_pos
         self._start_answer_request()
 
     def _start_answer_request(self) -> None:
@@ -346,13 +357,9 @@ class ViTaiApp:
             return
         if button != mouse.Button.left:
             return
-        start = self.mouse_press_pos
-        self.mouse_press_pos = None
-        if start is None:
-            return
-        if abs(x - start[0]) < 8 and abs(y - start[1]) < 8:
-            return
+        # Luôn ghi nhận vị trí nhả chuột trái là đuôi của vùng văn bản vừa bôi đen
         self.selection_anchor = (x, y)
+        self.mouse_press_pos = None
 
     def _process_selection(self) -> None:
         if not self.worker_lock.acquire(blocking=False):

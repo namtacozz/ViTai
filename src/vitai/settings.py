@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QCloseEvent, QIcon, QKeyEvent, QMouseEvent, QPixmap, QResizeEvent, QTextCursor
 from PyQt6.QtWidgets import (
     QApplication,
@@ -37,6 +37,16 @@ from vitai.model_registry import get_model_registry
 from vitai.oauth_provider import get_subscription_display_name, is_oauth_supported
 from vitai.proxy import get_local_proxy
 from vitai.resources import resource_path
+from vitai.sepay import (
+    DEFAULT_BANK_ACC,
+    DEFAULT_BANK_ID,
+    DEFAULT_BANK_NAME,
+    DEFAULT_REGISTRATION_PRICE,
+    DEFAULT_SEPAY_TOKEN,
+    check_sepay_payment,
+    generate_order_code,
+    get_vietqr_url,
+)
 from vitai.token_store import OAuthToken, get_token_store
 from vitai.ui_log import get_log_bridge, get_ui_log_handler
 from vitai.user_store import (
@@ -75,6 +85,14 @@ def get_stylesheet(theme: str = "dark") -> str:
             selection-background-color: rgba(224, 159, 94, 0.2);
             selection-color: #0F172A;
         }
+        QTableCornerButton::section {
+            background-color: #F1F5F9;
+            border: 1px solid #E2E8F0;
+        }
+        QHeaderView {
+            background-color: #F1F5F9;
+            border: none;
+        }
         QHeaderView::section {
             background-color: #F1F5F9;
             color: #475569;
@@ -82,6 +100,11 @@ def get_stylesheet(theme: str = "dark") -> str:
             border: 1px solid #E2E8F0;
             font-weight: 700;
             font-size: 12px;
+        }
+        QHeaderView::section:vertical {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #E2E8F0;
         }
 
         /* Menus */
@@ -499,6 +522,14 @@ def get_stylesheet(theme: str = "dark") -> str:
         selection-background-color: rgba(224, 159, 94, 0.25);
         selection-color: #FFFFFF;
     }
+    QTableCornerButton::section {
+        background-color: #181A1F;
+        border: 1px solid #1F2228;
+    }
+    QHeaderView {
+        background-color: #181A1F;
+        border: none;
+    }
     QHeaderView::section {
         background-color: #181A1F;
         color: #94A3B8;
@@ -506,6 +537,11 @@ def get_stylesheet(theme: str = "dark") -> str:
         border: 1px solid #1F2228;
         font-weight: 700;
         font-size: 12px;
+    }
+    QHeaderView::section:vertical {
+        background-color: #181A1F;
+        color: #94A3B8;
+        border: 1px solid #1F2228;
     }
 
     /* Menus */
@@ -939,7 +975,7 @@ PROVIDER_GUIDES = {
     "9router": {
         "title": "Hướng dẫn sử dụng 9Router",
         "content": """
-        <h3 style="color: #E09F5E;">⚡ 9Router — Local Proxy</h3>
+        <h3 style="color: #E09F5E;">9Router — Local Proxy</h3>
         <p><b>9Router</b> là proxy định tuyến AI chạy song song tại cổng <code>http://localhost:20128/v1</code>.</p>
         <p><b>Ưu điểm:</b> Tự động chọn model tối ưu và cân bằng tải.</p>
         """,
@@ -1043,7 +1079,6 @@ class HotkeyInputButton(QPushButton):
         self.key = key
         self.recording = False
         self._update_text()
-        self.clicked.connect(self._start_recording)
 
     def set_hotkey(self, modifier: str, key: str) -> None:
         self.modifier = modifier
@@ -1068,17 +1103,20 @@ class HotkeyInputButton(QPushButton):
 
         key_disp = format_key_display(self.key)
         disp = "+".join(formatted) + f"+{key_disp}" if formatted else key_disp
-        self.setText(f"⌨  {disp}  (Nhấn để đổi)")
+        self.setText(f"{disp}  (Nhấn để đổi)")
 
     def _start_recording(self) -> None:
         self.recording = True
-        self.setText("● Bấm phím hoặc click chuột...")
+        self.setText("Nhấn phím hoặc click chuột...")
         self.grabKeyboard()
         self.grabMouse()
 
     def mousePressEvent(self, e: QMouseEvent | None) -> None:
-        if not e or not self.recording:
-            super().mousePressEvent(e)
+        if not e:
+            return
+
+        if not self.recording:
+            self._start_recording()
             return
 
         modifiers = []
@@ -1103,6 +1141,12 @@ class HotkeyInputButton(QPushButton):
             key_name = "mouse_x2"
         elif btn == Qt.MouseButton.LeftButton and modifiers:
             key_name = "mouse_left"
+        elif btn == Qt.MouseButton.LeftButton and not modifiers:
+            self.recording = False
+            self.releaseKeyboard()
+            self.releaseMouse()
+            self._show_quick_choice_menu()
+            return
 
         if key_name:
             self.modifier = "+".join(modifiers) if modifiers else "none"
@@ -1112,9 +1156,31 @@ class HotkeyInputButton(QPushButton):
             self.releaseMouse()
             self._update_text()
             self.hotkey_changed.emit(self.modifier, self.key)
-            return
 
-        super().mousePressEvent(e)
+    def _show_quick_choice_menu(self) -> None:
+        menu = QMenu(self)
+        presets = [
+            ("Chuột Phải", "none", "mouse_right"),
+            ("Chuột Giữa", "none", "mouse_middle"),
+            ("Nút Chuột Phụ 1 (Back)", "none", "mouse_x1"),
+            ("Nút Chuột Phụ 2 (Forward)", "none", "mouse_x2"),
+            ("Alt + Chuột Phải", "alt", "mouse_right"),
+            ("Ctrl + Chuột Phải", "ctrl", "mouse_right"),
+            ("Shift + Chuột Phải", "shift", "mouse_right"),
+            ("Cmd + Chuột Phải" if sys.platform == "darwin" else "Win + Chuột Phải", "cmd", "mouse_right"),
+        ]
+        for label, mod, k in presets:
+            action = menu.addAction(label)
+            if action is not None:
+                action.triggered.connect(lambda _, m=mod, key_val=k: self._apply_hotkey_from_menu(m, key_val))
+        menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
+        self._update_text()
+
+    def _apply_hotkey_from_menu(self, modifier: str, key: str) -> None:
+        self.modifier = modifier
+        self.key = key
+        self._update_text()
+        self.hotkey_changed.emit(self.modifier, self.key)
 
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
         if not a0:
@@ -1124,6 +1190,13 @@ class HotkeyInputButton(QPushButton):
             return
 
         key_code = a0.key()
+        if key_code == Qt.Key.Key_Escape:
+            self.recording = False
+            self.releaseKeyboard()
+            self.releaseMouse()
+            self._update_text()
+            return
+
         if key_code in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
             return
 
@@ -1146,6 +1219,10 @@ class HotkeyInputButton(QPushButton):
         else:
             if 65 <= key_code <= 90:
                 key_char = chr(key_code).lower()
+            elif Qt.Key.Key_F1 <= key_code <= Qt.Key.Key_F12:
+                key_char = f"f{key_code - Qt.Key.Key_F1 + 1}"
+            elif key_code == Qt.Key.Key_Space:
+                key_char = "space"
             else:
                 key_char = "q"
 
@@ -1202,14 +1279,14 @@ class LoginDialog(QDialog):
         layout.setSpacing(14)
 
         # Header Title
-        title_lbl = QLabel("🔐 Xác Thực Tài Khoản")
+        title_lbl = QLabel("Xác Thực Tài Khoản")
         title_lbl.setStyleSheet(
             "font-size: 18px; font-weight: 800; color: " + ("#F1F5F9" if self.theme == "dark" else "#0F172A") + ";"
         )
         layout.addWidget(title_lbl)
 
         # MAC Badge & Policy Note
-        mac_badge = QLabel(f"💻 Thiết bị này (MAC): {self.current_mac}")
+        mac_badge = QLabel(f"Thiết bị này (MAC): {self.current_mac}")
         mac_badge.setStyleSheet(
             "font-size: 11px; font-weight: 600; color: #E09F5E; "
             "background-color: rgba(224, 159, 94, 0.12); padding: 5px 8px; border-radius: 6px;"
@@ -1261,7 +1338,7 @@ class LoginDialog(QDialog):
         pwd_str = self.pass_input.text().strip()
 
         if not user_str or not pwd_str:
-            self.err_lbl.setText("⚠️ Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!")
+            self.err_lbl.setText("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!")
             self.err_lbl.setVisible(True)
             return
 
@@ -1271,7 +1348,7 @@ class LoginDialog(QDialog):
             save_session(user_obj)
             self.accept()
         else:
-            self.err_lbl.setText(f"❌ {err_msg}")
+            self.err_lbl.setText(f"{err_msg}")
             self.err_lbl.setVisible(True)
             self.pass_input.clear()
             self.pass_input.setFocus()
@@ -1293,7 +1370,7 @@ class AddUserDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(12)
 
-        title_lbl = QLabel("➕ Tạo Tài Khoản Mới")
+        title_lbl = QLabel("Tạo Tài Khoản Mới")
         title_lbl.setStyleSheet(
             "font-size: 16px; font-weight: 800; color: " + ("#F1F5F9" if self.theme == "dark" else "#0F172A") + ";"
         )
@@ -1314,8 +1391,8 @@ class AddUserDialog(QDialog):
         role_row.addWidget(role_lbl)
 
         self.role_combo = QComboBox()
-        self.role_combo.addItem("👤 Người Dùng (user)", "user")
-        self.role_combo.addItem("👑 Quản Trị Viên (admin)", "admin")
+        self.role_combo.addItem("Người Dùng (user)", "user")
+        self.role_combo.addItem("Quản Trị Viên (admin)", "admin")
         role_row.addWidget(self.role_combo, 1)
         layout.addLayout(role_row)
 
@@ -1343,7 +1420,7 @@ class AddUserDialog(QDialog):
         pwd = self.pass_input.text().strip()
         role = str(self.role_combo.currentData())
         if not username or not pwd:
-            self.err_lbl.setText("⚠️ Vui lòng nhập đầy đủ tên và mật khẩu!")
+            self.err_lbl.setText("Vui lòng nhập đầy đủ tên và mật khẩu!")
             self.err_lbl.setVisible(True)
             return
 
@@ -1351,7 +1428,7 @@ class AddUserDialog(QDialog):
         if ok:
             self.accept()
         else:
-            self.err_lbl.setText(f"⚠️ {msg}")
+            self.err_lbl.setText(f"{msg}")
             self.err_lbl.setVisible(True)
 
 
@@ -1372,7 +1449,7 @@ class ChangeUserPasswordDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(12)
 
-        title_lbl = QLabel(f"🔑 Đổi Mật Khẩu cho: {self.username}")
+        title_lbl = QLabel(f"Đổi Mật Khẩu cho: {self.username}")
         title_lbl.setStyleSheet(
             "font-size: 15px; font-weight: 800; color: " + ("#F1F5F9" if self.theme == "dark" else "#0F172A") + ";"
         )
@@ -1405,14 +1482,14 @@ class ChangeUserPasswordDialog(QDialog):
     def _on_submit(self) -> None:
         pwd = self.pass_input.text().strip()
         if not pwd:
-            self.err_lbl.setText("⚠️ Mật khẩu không được để trống!")
+            self.err_lbl.setText("Mật khẩu không được để trống!")
             self.err_lbl.setVisible(True)
             return
         ok, msg = self.store.update_password(self.username, pwd)
         if ok:
             self.accept()
         else:
-            self.err_lbl.setText(f"⚠️ {msg}")
+            self.err_lbl.setText(f"{msg}")
             self.err_lbl.setVisible(True)
 
 
@@ -1436,7 +1513,7 @@ class CloudConfigDialog(QDialog):
         layout.setSpacing(12)
 
         # Title
-        title_lbl = QLabel("🌐 Đồng Bộ Cloud Database")
+        title_lbl = QLabel("Đồng Bộ Cloud Database")
         title_lbl.setStyleSheet(
             "font-size: 16px; font-weight: 800; color: " + ("#F1F5F9" if self.theme == "dark" else "#0F172A") + ";"
         )
@@ -1463,8 +1540,8 @@ class CloudConfigDialog(QDialog):
         row_prov.addWidget(lbl_prov)
 
         self.combo_provider = QComboBox()
-        self.combo_provider.addItem("⚡ Supabase (PostgreSQL REST - Khuyên Dùng)", "supabase")
-        self.combo_provider.addItem("🔥 Firebase Firestore REST", "firebase")
+        self.combo_provider.addItem("Supabase (PostgreSQL REST - Khuyên Dùng)", "supabase")
+        self.combo_provider.addItem("Firebase Firestore REST", "firebase")
         self.combo_provider.currentIndexChanged.connect(self._on_provider_changed)
         row_prov.addWidget(self.combo_provider, 1)
         layout.addLayout(row_prov)
@@ -1527,12 +1604,12 @@ class CloudConfigDialog(QDialog):
         act_box = QHBoxLayout()
         act_box.setSpacing(8)
 
-        self.btn_test = QPushButton("🔍 Kiểm Tra Kết Nối")
+        self.btn_test = QPushButton("Kiểm Tra Kết Nối")
         self.btn_test.setObjectName("helpButton")
         self.btn_test.clicked.connect(self._on_test_connection)
         act_box.addWidget(self.btn_test)
 
-        self.btn_copy_sql = QPushButton("📋 Copy SQL Tạo Bảng Supabase")
+        self.btn_copy_sql = QPushButton("Copy SQL Tạo Bảng Supabase")
         self.btn_copy_sql.clicked.connect(self._on_copy_sql)
         act_box.addWidget(self.btn_copy_sql)
 
@@ -1551,7 +1628,7 @@ class CloudConfigDialog(QDialog):
         guide_layout = QVBoxLayout(guide_box)
         guide_layout.setContentsMargins(10, 8, 10, 8)
         guide_text = QLabel(
-            "<b>💡 Hướng dẫn nhanh Supabase:</b><br>"
+            "<b>Hướng dẫn nhanh Supabase:</b><br>"
             "1. Vào Supabase Dashboard → <b>SQL Editor</b> → Paste câu lệnh SQL bằng nút copy bên trên.<br>"
             "2. Lấy <b>Project URL</b> và <b>anon public key</b> trong <i>Project Settings → API</i> dán vào đây."
         )
@@ -1614,16 +1691,16 @@ class CloudConfigDialog(QDialog):
     def _on_test_connection(self) -> None:
         cfg = self._build_cloud_config()
         client = CloudAuthClient(cfg)
-        self.status_lbl.setText("⏳ Đang kết nối thử nghiệm đến Cloud...")
+        self.status_lbl.setText("Đang kết nối thử nghiệm đến Cloud...")
         self.status_lbl.setStyleSheet("color: #E09F5E; font-size: 11px;")
         QApplication.processEvents()
 
         ok, msg = client.test_connection()
         if ok:
-            self.status_lbl.setText(f"✓ {msg}")
+            self.status_lbl.setText(f"{msg}")
             self.status_lbl.setStyleSheet("color: #4ADE80; font-size: 11px; font-weight: bold;")
         else:
-            self.status_lbl.setText(f"✕ {msg}")
+            self.status_lbl.setText(f"{msg}")
             self.status_lbl.setStyleSheet("color: #EF4444; font-size: 11px; font-weight: bold;")
 
     def _on_copy_sql(self) -> None:
@@ -1643,7 +1720,7 @@ class CloudConfigDialog(QDialog):
         cb = QApplication.clipboard()
         if cb:
             cb.setText(sql)
-            self.status_lbl.setText("✓ Đã sao chép SQL tạo bảng vào bộ nhớ tạm (Clipboard)!")
+            self.status_lbl.setText("Đã sao chép SQL tạo bảng vào bộ nhớ tạm (Clipboard)!")
             self.status_lbl.setStyleSheet("color: #4ADE80; font-size: 11px;")
 
     def _on_save(self) -> None:
@@ -1672,7 +1749,7 @@ class UnsavedChangesDialog(QDialog):
         layout.setContentsMargins(22, 18, 22, 18)
         layout.setSpacing(12)
 
-        title_lbl = QLabel("⚠️ Thay đổi chưa được lưu")
+        title_lbl = QLabel("Thay đổi chưa được lưu")
         title_lbl.setStyleSheet(
             "font-size: 15px; font-weight: 800; color: #E09F5E;"
         )
@@ -1720,6 +1797,319 @@ class UnsavedChangesDialog(QDialog):
         self.accept()
 
 
+class RegisterPaymentDialog(QDialog):
+    """Hộp thoại đăng ký tài khoản tự động bằng cách quét mã VietQR (50.000đ) kết nối SePay."""
+
+    qr_loaded_signal = pyqtSignal(bytes)
+    payment_status_signal = pyqtSignal(bool, str)
+
+    def __init__(self, user_store: UserStore, parent=None, theme: str = "dark"):
+        super().__init__(parent)
+        self.store = user_store
+        self.theme = theme
+        self.setWindowTitle("Đăng Ký Tài Khoản & Quét Mã VietQR (50.000đ)")
+        self.resize(720, 520)
+        self.setMinimumSize(680, 480)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
+        self.setStyleSheet(get_stylesheet(theme))
+
+        self.order_code = generate_order_code()
+        self.is_paid = False
+        self.created_username = ""
+        self.created_password = ""
+
+        self.qr_loaded_signal.connect(self._on_qr_loaded)
+        self.payment_status_signal.connect(self._on_payment_status)
+
+        self._build_ui()
+        self._start_qr_load()
+        self._start_polling()
+
+    def _build_ui(self) -> None:
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(18, 18, 18, 18)
+        main_layout.setSpacing(16)
+
+        # -----------------------------
+        # CỘT TRÁI: VIETQR & NGÂN HÀNG
+        # -----------------------------
+        card_left = QFrame()
+        card_left.setObjectName("cardFrame")
+        layout_left = QVBoxLayout(card_left)
+        layout_left.setContentsMargins(16, 16, 16, 16)
+        layout_left.setSpacing(10)
+        layout_left.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        lbl_qr_title = QLabel("QUÉT MÃ VIETQR (50.000đ)")
+        lbl_qr_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #E09F5E;")
+        lbl_qr_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout_left.addWidget(lbl_qr_title)
+
+        # QR Image Box
+        self.qr_box = QLabel()
+        self.qr_box.setFixedSize(180, 180)
+        self.qr_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.qr_box.setStyleSheet(
+            "background-color: #FFFFFF; border: 2px solid rgba(224, 159, 94, 0.4); "
+            "border-radius: 10px; color: #0C0D0E; font-size: 12px; font-weight: 600;"
+        )
+        self.qr_box.setText("Đang tạo mã QR...")
+        layout_left.addWidget(self.qr_box, 0, Qt.AlignmentFlag.AlignCenter)
+
+        # Bank Info Box
+        info_box = QFrame()
+        info_box.setStyleSheet(
+            "background-color: rgba(224, 159, 94, 0.08); border: 1px solid rgba(224, 159, 94, 0.25); "
+            "border-radius: 8px; padding: 6px;"
+        )
+        info_layout = QVBoxLayout(info_box)
+        info_layout.setContentsMargins(6, 6, 6, 6)
+        info_layout.setSpacing(4)
+
+        lbl_bank = QLabel(f"Ngân hàng: <b>MBBank ({DEFAULT_BANK_ID})</b>")
+        lbl_bank.setStyleSheet("font-size: 11px; color: " + ("#E2E8F0" if self.theme == "dark" else "#1E293B"))
+        info_layout.addWidget(lbl_bank)
+
+        lbl_owner = QLabel(f"Chủ TK: <b>{DEFAULT_BANK_NAME}</b>")
+        lbl_owner.setStyleSheet("font-size: 11px; color: " + ("#E2E8F0" if self.theme == "dark" else "#1E293B"))
+        info_layout.addWidget(lbl_owner)
+
+        stk_row = QHBoxLayout()
+        lbl_stk = QLabel(f"STK: <b>{DEFAULT_BANK_ACC}</b>")
+        lbl_stk.setStyleSheet("font-size: 12px; font-weight: 700; color: #E09F5E;")
+        stk_row.addWidget(lbl_stk)
+        stk_row.addStretch()
+        btn_copy_stk = QPushButton("Copy STK")
+        btn_copy_stk.setFixedHeight(22)
+        btn_copy_stk.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+        btn_copy_stk.clicked.connect(lambda: self._copy_text(DEFAULT_BANK_ACC, "Đã sao chép STK!"))
+        stk_row.addWidget(btn_copy_stk)
+        info_layout.addLayout(stk_row)
+
+        lbl_amount = QLabel("Số tiền: <b>50.000 VNĐ</b>")
+        lbl_amount.setStyleSheet("font-size: 12px; font-weight: 700; color: #4ADE80;")
+        info_layout.addWidget(lbl_amount)
+
+        memo_row = QHBoxLayout()
+        lbl_memo = QLabel(f"Nội dung: <b>{self.order_code}</b>")
+        lbl_memo.setStyleSheet("font-size: 12px; font-weight: 800; color: #38BDF8;")
+        memo_row.addWidget(lbl_memo)
+        memo_row.addStretch()
+        btn_copy_memo = QPushButton("Copy ND")
+        btn_copy_memo.setFixedHeight(22)
+        btn_copy_memo.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+        btn_copy_memo.clicked.connect(lambda: self._copy_text(self.order_code, "Đã sao chép mã nội dung!"))
+        memo_row.addWidget(btn_copy_memo)
+        info_layout.addLayout(memo_row)
+
+        layout_left.addWidget(info_box)
+
+        lbl_note = QLabel("Lưu ý: Giữ đúng nội dung chuyển khoản để hệ thống tự động nhận diện trong 3 giây!")
+        lbl_note.setStyleSheet("font-size: 10px; color: #94A3B8;")
+        lbl_note.setWordWrap(True)
+        layout_left.addWidget(lbl_note)
+
+        layout_left.addStretch()
+        main_layout.addWidget(card_left, 1)
+
+        # -----------------------------
+        # CỘT PHẢI: FORM ĐĂNG KÝ
+        # -----------------------------
+        card_right = QFrame()
+        card_right.setObjectName("cardFrame")
+        layout_right = QVBoxLayout(card_right)
+        layout_right.setContentsMargins(18, 18, 18, 18)
+        layout_right.setSpacing(10)
+
+        lbl_form_title = QLabel("TẠO TÀI KHOẢN MỚI")
+        lbl_form_title.setStyleSheet("font-size: 16px; font-weight: 800; color: #E09F5E;")
+        layout_right.addWidget(lbl_form_title)
+
+        lbl_form_desc = QLabel(
+            "Nhập tên đăng nhập & mật khẩu tùy ý của bạn (không giới hạn ký tự). "
+            "Sau khi chuyển tiền, hệ thống SePay sẽ tự động kích hoạt tài khoản 24/7."
+        )
+        lbl_form_desc.setStyleSheet("font-size: 12px; color: #94A3B8;")
+        lbl_form_desc.setWordWrap(True)
+        layout_right.addWidget(lbl_form_desc)
+
+        layout_right.addSpacing(4)
+
+        lbl_u = QLabel("Tên đăng nhập:")
+        lbl_u.setStyleSheet("font-size: 12px; font-weight: 600;")
+        layout_right.addWidget(lbl_u)
+        self.reg_user_input = QLineEdit()
+        self.reg_user_input.setPlaceholderText("Nhập tên đăng nhập tùy ý...")
+        layout_right.addWidget(self.reg_user_input)
+
+        lbl_p = QLabel("Mật khẩu:")
+        lbl_p.setStyleSheet("font-size: 12px; font-weight: 600;")
+        layout_right.addWidget(lbl_p)
+        self.reg_pass_input = QLineEdit()
+        self.reg_pass_input.setPlaceholderText("Nhập mật khẩu...")
+        self.reg_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout_right.addWidget(self.reg_pass_input)
+
+        lbl_p2 = QLabel("Xác nhận mật khẩu:")
+        lbl_p2.setStyleSheet("font-size: 12px; font-weight: 600;")
+        layout_right.addWidget(lbl_p2)
+        self.reg_pass2_input = QLineEdit()
+        self.reg_pass2_input.setPlaceholderText("Nhập lại mật khẩu...")
+        self.reg_pass2_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout_right.addWidget(self.reg_pass2_input)
+
+        # Payment status message
+        self.status_lbl = QLabel("Đang chờ bạn quét mã QR chuyển khoản...")
+        self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #E09F5E;")
+        self.status_lbl.setWordWrap(True)
+        layout_right.addWidget(self.status_lbl)
+
+        layout_right.addStretch()
+
+        # Action Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        self.btn_cancel = QPushButton("Hủy")
+        self.btn_cancel.setObjectName("exitButton")
+        self.btn_cancel.clicked.connect(self._on_cancel)
+        btn_row.addWidget(self.btn_cancel)
+
+        self.btn_submit = QPushButton("Kiểm Tra & Tạo Tài Khoản")
+        self.btn_submit.setObjectName("saveButton")
+        self.btn_submit.clicked.connect(self._on_submit)
+        btn_row.addWidget(self.btn_submit)
+
+        layout_right.addLayout(btn_row)
+        main_layout.addWidget(card_right, 1)
+
+    def _copy_text(self, text: str, toast: str) -> None:
+        clip = QApplication.clipboard()
+        if clip:
+            clip.setText(text)
+            self.status_lbl.setText(toast)
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 600; color: #38BDF8;")
+
+    def _start_qr_load(self) -> None:
+        def fetch_qr():
+            try:
+                import urllib.request
+                url = get_vietqr_url(
+                    bank_id=DEFAULT_BANK_ID,
+                    account_no=DEFAULT_BANK_ACC,
+                    account_name=DEFAULT_BANK_NAME,
+                    amount=DEFAULT_REGISTRATION_PRICE,
+                    memo=self.order_code,
+                )
+                req = urllib.request.Request(url, headers={"User-Agent": "ViTai-App/3.0"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    if resp.status == 200:
+                        raw = resp.read()
+                        self.qr_loaded_signal.emit(raw)
+            except Exception:
+                pass
+
+        t = threading.Thread(target=fetch_qr, daemon=True)
+        t.start()
+
+    def _on_qr_loaded(self, raw_bytes: bytes) -> None:
+        try:
+            pix = QPixmap()
+            if pix.loadFromData(raw_bytes):
+                self.qr_box.setPixmap(
+                    pix.scaled(
+                        180,
+                        180,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+        except Exception:
+            pass
+
+    def _start_polling(self) -> None:
+        self.poll_timer = QTimer(self)
+        self.poll_timer.setInterval(3500)
+        self.poll_timer.timeout.connect(self._poll_sepay)
+        self.poll_timer.start()
+
+    def _poll_sepay(self) -> None:
+        if self.is_paid:
+            return
+
+        def check_bg():
+            paid, msg, tx = check_sepay_payment(self.order_code, expected_amount=DEFAULT_REGISTRATION_PRICE)
+            if paid:
+                self.payment_status_signal.emit(True, "Đã nhận thành công 50.000đ! Sẵn sàng tạo tài khoản.")
+
+        t = threading.Thread(target=check_bg, daemon=True)
+        t.start()
+
+    def _on_payment_status(self, paid: bool, msg: str) -> None:
+        if paid:
+            self.is_paid = True
+            self.status_lbl.setText("✓ " + msg)
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #4ADE80;")
+            self.btn_submit.setText("Tạo Tài Khoản Ngay")
+
+    def _on_submit(self) -> None:
+        u_text = self.reg_user_input.text().strip()
+        p_text = self.reg_pass_input.text()
+        p2_text = self.reg_pass2_input.text()
+
+        if not u_text:
+            self.status_lbl.setText("Vui lòng nhập tên đăng nhập!")
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #EF4444;")
+            return
+
+        if not p_text:
+            self.status_lbl.setText("Vui lòng nhập mật khẩu!")
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #EF4444;")
+            return
+
+        if p_text != p2_text:
+            self.status_lbl.setText("Mật khẩu xác nhận không khớp!")
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #EF4444;")
+            return
+
+        if not self.is_paid:
+            self.status_lbl.setText("Đang kiểm tra SePay...")
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #E09F5E;")
+            self.btn_submit.setEnabled(False)
+            QApplication.processEvents()
+
+            paid, msg, tx = check_sepay_payment(self.order_code, expected_amount=DEFAULT_REGISTRATION_PRICE)
+            self.btn_submit.setEnabled(True)
+            if not paid:
+                self.status_lbl.setText(f"Chưa nhận được chuyển khoản 50.000đ với nội dung '{self.order_code}'. Vui lòng quét mã QR trước khi bấm.")
+                self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #EF4444;")
+                return
+            self.is_paid = True
+
+        # Tạo user mới với role 'user'
+        ok, msg = self.store.create_user(u_text, p_text, role="user")
+        if not ok:
+            self.status_lbl.setText(msg)
+            self.status_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #EF4444;")
+            return
+
+        self.created_username = u_text
+        self.created_password = p_text
+        if hasattr(self, "poll_timer") and self.poll_timer.isActive():
+            self.poll_timer.stop()
+        self.accept()
+
+    def _on_cancel(self) -> None:
+        if hasattr(self, "poll_timer") and self.poll_timer.isActive():
+            self.poll_timer.stop()
+        self.reject()
+
+    def closeEvent(self, a0) -> None:
+        if hasattr(self, "poll_timer") and self.poll_timer.isActive():
+            self.poll_timer.stop()
+        super().closeEvent(a0)
+
+
 class SettingsWindow(QDialog):
     config_changed = pyqtSignal(AppConfig)
     exit_requested = pyqtSignal()
@@ -1743,8 +2133,8 @@ class SettingsWindow(QDialog):
             self.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         except Exception:
             pass
-        self.resize(780, 560)
-        self.setMinimumSize(740, 500)
+        self.resize(850, 580)
+        self.setMinimumSize(800, 520)
         self.setWindowFlags(
             Qt.WindowType.WindowCloseButtonHint
             | Qt.WindowType.WindowMinimizeButtonHint
@@ -1790,7 +2180,7 @@ class SettingsWindow(QDialog):
         sidebar_layout.setContentsMargins(10, 14, 10, 14)
         sidebar_layout.setSpacing(8)
 
-        # Brand / Logo Header
+        # Brand / Header with ViTai Logo
         self.brand_widget = QWidget()
         brand_layout = QHBoxLayout(self.brand_widget)
         brand_layout.setContentsMargins(0, 0, 0, 0)
@@ -1944,16 +2334,8 @@ class SettingsWindow(QDialog):
         hk_layout.addWidget(lbl_hk_title)
         hk_layout.addWidget(lbl_hk_desc)
 
-        hk_btn_row = QHBoxLayout()
         self.hotkey_btn = HotkeyInputButton("alt", "q")
-        hk_btn_row.addWidget(self.hotkey_btn, 1)
-
-        self.mouse_preset_btn = QPushButton("🖱️ Nút Chuột")
-        self.mouse_preset_btn.setObjectName("helpButton")
-        self.mouse_preset_btn.setToolTip("Chọn nhanh phím bấm chuột (Phải, Giữa, Nút phụ)")
-        self.mouse_preset_btn.clicked.connect(self._show_mouse_menu)
-        hk_btn_row.addWidget(self.mouse_preset_btn)
-        hk_layout.addLayout(hk_btn_row)
+        hk_layout.addWidget(self.hotkey_btn)
 
         hk_mode_row.addWidget(card_hotkey, 1)
 
@@ -1968,15 +2350,15 @@ class SettingsWindow(QDialog):
         lbl_m_title.setObjectName("cardTitle")
         m_layout.addWidget(lbl_m_title)
 
-        self.auto_check = QCheckBox("⚡ Fast Mode (Tự động khi bôi đen)")
-        self.cache_check = QCheckBox("💾 Cache Saver (Lưu phản hồi 0ms)")
+        self.auto_check = QCheckBox("Fast Mode (Tự động khi bôi đen)")
+        self.cache_check = QCheckBox("Cache Saver (Lưu phản hồi 0ms)")
         m_layout.addWidget(self.auto_check)
         m_layout.addWidget(self.cache_check)
         hk_mode_row.addWidget(card_modes, 1)
 
         page_shell_layout.addLayout(hk_mode_row)
 
-        # Card 2: Overlay Appearance (With Color Swatch & Circular Color Picker)
+        # Card 2: Overlay Appearance (With Clickable Color Swatch opening Circular Color Picker)
         card_overlay = QFrame()
         card_overlay.setObjectName("cardFrame")
         ov_layout = QVBoxLayout(card_overlay)
@@ -2009,9 +2391,9 @@ class SettingsWindow(QDialog):
         lbl_cl.setFixedWidth(60)
         ov_row.addWidget(lbl_cl)
 
-        # Color Swatch Indicator (Clickable 30x30 box)
+        # Color Swatch Indicator (Clickable 32x32 button that opens 360° Color Wheel)
         self.color_swatch = QLabel()
-        self.color_swatch.setFixedSize(30, 30)
+        self.color_swatch.setFixedSize(32, 32)
         self.color_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
         self.color_swatch.setToolTip("Nhấn để mở Bảng màu tròn 360° (Photoshop / Aseprite style)")
         self.color_swatch.mousePressEvent = lambda ev: self._open_color_wheel()
@@ -2028,12 +2410,6 @@ class SettingsWindow(QDialog):
         self.color_combo.currentTextChanged.connect(self._on_overlay_style_changed)
         ov_row.addWidget(self.color_combo, 1)
 
-        self.color_wheel_btn = QPushButton("🎨 Bảng Màu Tròn")
-        self.color_wheel_btn.setObjectName("helpButton")
-        self.color_wheel_btn.setToolTip("Mở bảng chọn màu phổ tròn 360°")
-        self.color_wheel_btn.clicked.connect(self._open_color_wheel)
-        ov_row.addWidget(self.color_wheel_btn)
-
         ov_layout.addLayout(ov_row)
         page_shell_layout.addWidget(card_overlay)
 
@@ -2045,12 +2421,21 @@ class SettingsWindow(QDialog):
         prev_layout.setSpacing(10)
 
         prev_title_row = QHBoxLayout()
-        lbl_prev_title = QLabel("👁️ Xem trước (Ghost Overlay)")
+        lbl_prev_title = QLabel("Xem trước (Ghost Overlay)")
         lbl_prev_title.setObjectName("cardTitle")
         prev_title_row.addWidget(lbl_prev_title)
         prev_title_row.addStretch()
 
-        live_badge = QLabel("● Xem trước")
+        self._preview_bg_mode = "dark"
+        self.preview_bg_btn = QPushButton("Nền: Đen")
+        self.preview_bg_btn.setObjectName("helpButton")
+        self.preview_bg_btn.setToolTip("Chuyển đổi nền mô phỏng giữa Đen và Trắng để kiểm tra độ tương phản màu sắc")
+        self.preview_bg_btn.setFixedHeight(24)
+        self.preview_bg_btn.setStyleSheet("font-size: 11px; padding: 2px 10px; font-weight: 700;")
+        self.preview_bg_btn.clicked.connect(self._toggle_preview_bg)
+        prev_title_row.addWidget(self.preview_bg_btn)
+
+        live_badge = QLabel("Xem trước")
         live_badge.setStyleSheet(
             "color: #4ADE80; font-size: 11px; font-weight: 700; "
             "background-color: rgba(34, 197, 94, 0.12); padding: 3px 8px; border-radius: 6px;"
@@ -2058,16 +2443,16 @@ class SettingsWindow(QDialog):
         prev_title_row.addWidget(live_badge)
         prev_layout.addLayout(prev_title_row)
 
-        lbl_prev_desc = QLabel("Mô phỏng chữ cái đáp án hiển thị:")
+        lbl_prev_desc = QLabel("Mô phỏng chữ cái đáp án hiển thị (bấm nút để thử trên nền Đen/Trắng):")
         lbl_prev_desc.setObjectName("cardDesc")
         prev_layout.addWidget(lbl_prev_desc)
 
         # Clean Centered Stage Box with ONLY the letter 'A'
-        preview_stage = QFrame()
-        preview_stage.setStyleSheet(
+        self.preview_stage = QFrame()
+        self.preview_stage.setStyleSheet(
             "background-color: #08090B; border: 1px dashed #2E333D; border-radius: 8px; min-height: 85px;"
         )
-        stage_layout = QVBoxLayout(preview_stage)
+        stage_layout = QVBoxLayout(self.preview_stage)
         stage_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         stage_layout.setContentsMargins(16, 14, 16, 14)
 
@@ -2075,7 +2460,7 @@ class SettingsWindow(QDialog):
         self.preview_ghost_tag.setAlignment(Qt.AlignmentFlag.AlignCenter)
         stage_layout.addWidget(self.preview_ghost_tag, 0, Qt.AlignmentFlag.AlignCenter)
 
-        prev_layout.addWidget(preview_stage)
+        prev_layout.addWidget(self.preview_stage)
         page_shell_layout.addWidget(card_preview)
 
         page_shell_layout.addStretch()
@@ -2239,7 +2624,7 @@ class SettingsWindow(QDialog):
         cui_layout.setContentsMargins(14, 12, 14, 12)
         cui_layout.setSpacing(8)
 
-        lbl_ui_title = QLabel("👤 Thông Tin Tài Khoản")
+        lbl_ui_title = QLabel("Thông Tin Tài Khoản")
         lbl_ui_title.setObjectName("cardTitle")
         cui_layout.addWidget(lbl_ui_title)
 
@@ -2255,7 +2640,7 @@ class SettingsWindow(QDialog):
         self.acc_mac_lbl.setStyleSheet("font-size: 12px; color: #94A3B8;")
         cui_layout.addWidget(self.acc_mac_lbl)
 
-        self.acc_status_badge = QLabel("✓ Đã kích hoạt phần cứng trên thiết bị này")
+        self.acc_status_badge = QLabel("Đã kích hoạt phần cứng trên thiết bị này")
         self.acc_status_badge.setStyleSheet(
             "color: #4ADE80; font-size: 11px; font-weight: 700; "
             "background-color: rgba(34, 197, 94, 0.12); padding: 3px 8px; border-radius: 6px;"
@@ -2271,7 +2656,7 @@ class SettingsWindow(QDialog):
         cpwd_layout.setContentsMargins(14, 12, 14, 12)
         cpwd_layout.setSpacing(8)
 
-        lbl_pwd_title = QLabel("🔑 Đổi Mật Khẩu Cá Nhân")
+        lbl_pwd_title = QLabel("Đổi Mật Khẩu Cá Nhân")
         lbl_pwd_title.setObjectName("cardTitle")
         cpwd_layout.addWidget(lbl_pwd_title)
 
@@ -2338,7 +2723,7 @@ class SettingsWindow(QDialog):
         cadmin_layout.setContentsMargins(14, 12, 14, 12)
         cadmin_layout.setSpacing(8)
 
-        lbl_adm_title = QLabel("👑 Quản Trị Người Dùng & Khóa MAC")
+        lbl_adm_title = QLabel("Quản Trị Người Dùng & Khóa MAC")
         lbl_adm_title.setObjectName("cardTitle")
         lbl_adm_desc = QLabel("Xem danh sách người dùng, reset địa chỉ MAC khi người dùng đổi máy, khóa hoặc thêm tài khoản:")
         lbl_adm_desc.setObjectName("cardDesc")
@@ -2347,12 +2732,17 @@ class SettingsWindow(QDialog):
 
         # Cloud Sync Status & Config Toolbar
         cloud_bar = QHBoxLayout()
-        self.cloud_status_lbl = QLabel("🟠 Chế độ Cục Bộ")
+        cloud_bar.setSpacing(8)
+        self.cloud_status_lbl = QLabel("Chế độ Cục Bộ")
         self.cloud_status_lbl.setStyleSheet("font-size: 12px; font-weight: bold; color: #E09F5E;")
         cloud_bar.addWidget(self.cloud_status_lbl)
         cloud_bar.addStretch()
 
-        self.btn_adm_cloud = QPushButton("🌐 Cấu Hình Cloud Sync")
+        self.btn_adm_refresh = QPushButton("Làm Mới")
+        self.btn_adm_refresh.clicked.connect(self._refresh_admin_user_table)
+        cloud_bar.addWidget(self.btn_adm_refresh)
+
+        self.btn_adm_cloud = QPushButton("Cấu Hình Cloud Sync")
         self.btn_adm_cloud.setObjectName("helpButton")
         self.btn_adm_cloud.setToolTip("Cấu hình kết nối Supabase / Firebase để đồng bộ online giữa các máy tính")
         self.btn_adm_cloud.clicked.connect(self._on_admin_cloud_config)
@@ -2361,8 +2751,9 @@ class SettingsWindow(QDialog):
 
         # User Table
         self.admin_user_table = QTableWidget()
-        self.admin_user_table.setColumnCount(5)
-        self.admin_user_table.setHorizontalHeaderLabels(["Tài Khoản", "Vai Trò", "Địa Chỉ MAC Đã Khóa", "Trạng Thái", "Ngày Tạo"])
+        self.admin_user_table.setColumnCount(6)
+        self.admin_user_table.setHorizontalHeaderLabels(["Tài Khoản", "Mật Khẩu", "Vai Trò", "Địa Chỉ MAC Đã Khóa", "Trạng Thái", "Ngày Tạo"])
+        self.admin_user_table.verticalHeader().setVisible(False)
         header = self.admin_user_table.horizontalHeader()
         if header is not None:
             header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -2374,37 +2765,33 @@ class SettingsWindow(QDialog):
         adm_act_row = QHBoxLayout()
         adm_act_row.setSpacing(8)
 
-        self.btn_adm_add = QPushButton("➕ Thêm User")
+        self.btn_adm_add = QPushButton("Thêm User")
         self.btn_adm_add.setObjectName("saveButton")
         self.btn_adm_add.clicked.connect(self._on_admin_add_user)
         adm_act_row.addWidget(self.btn_adm_add)
 
-        self.btn_adm_reset_mac = QPushButton("🔄 Reset MAC")
+        self.btn_adm_reset_mac = QPushButton("Reset MAC")
         self.btn_adm_reset_mac.setObjectName("helpButton")
         self.btn_adm_reset_mac.setToolTip("Xóa địa chỉ MAC cũ để người dùng đăng nhập trên máy mới")
         self.btn_adm_reset_mac.clicked.connect(self._on_admin_reset_mac)
         adm_act_row.addWidget(self.btn_adm_reset_mac)
 
-        self.btn_adm_change_pwd = QPushButton("🔑 Đổi Mật Khẩu")
+        self.btn_adm_change_pwd = QPushButton("Đổi Mật Khẩu")
         self.btn_adm_change_pwd.setObjectName("helpButton")
         self.btn_adm_change_pwd.clicked.connect(self._on_admin_change_user_password)
         adm_act_row.addWidget(self.btn_adm_change_pwd)
 
-        self.btn_adm_toggle = QPushButton("🔒 Khóa/Mở")
+        self.btn_adm_toggle = QPushButton("Khóa/Mở")
         self.btn_adm_toggle.setObjectName("helpButton")
         self.btn_adm_toggle.clicked.connect(self._on_admin_toggle_active)
         adm_act_row.addWidget(self.btn_adm_toggle)
 
-        self.btn_adm_del = QPushButton("🗑️ Xóa User")
+        self.btn_adm_del = QPushButton("Xóa User")
         self.btn_adm_del.setObjectName("exitButton")
         self.btn_adm_del.clicked.connect(self._on_admin_delete_user)
         adm_act_row.addWidget(self.btn_adm_del)
 
         adm_act_row.addStretch()
-
-        self.btn_adm_refresh = QPushButton("⟳ Làm Mới")
-        self.btn_adm_refresh.clicked.connect(self._refresh_admin_user_table)
-        adm_act_row.addWidget(self.btn_adm_refresh)
 
         cadmin_layout.addLayout(adm_act_row)
         page_admin_layout.addWidget(card_admin)
@@ -2475,13 +2862,13 @@ class SettingsWindow(QDialog):
         # Centered Login Card
         login_card = QFrame()
         login_card.setObjectName("loginCard")
-        login_card.setFixedSize(450, 420)
+        login_card.setFixedSize(460, 450)
         card_layout = QVBoxLayout(login_card)
         card_layout.setContentsMargins(32, 28, 32, 28)
         card_layout.setSpacing(12)
 
         # Header Icon & Title
-        title_box = QLabel("🛡️ ĐĂNG NHẬP HỆ THỐNG ViTai")
+        title_box = QLabel("ĐĂNG NHẬP HỆ THỐNG ViTai")
         title_box.setStyleSheet("font-size: 17px; font-weight: 900; color: #E09F5E;")
         title_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(title_box)
@@ -2495,7 +2882,7 @@ class SettingsWindow(QDialog):
         card_layout.addSpacing(4)
 
         # Hardware MAC Lock Badge
-        self.gate_mac_lbl = QLabel(f"💻 Khóa Thiết Bị (MAC): {get_mac_address()}")
+        self.gate_mac_lbl = QLabel(f"Khóa Thiết Bị (MAC): {get_mac_address()}")
         self.gate_mac_lbl.setStyleSheet(
             "font-size: 11px; font-weight: 700; color: #E09F5E; "
             "background-color: rgba(224, 159, 94, 0.12); padding: 5px 8px; border-radius: 6px;"
@@ -2504,7 +2891,7 @@ class SettingsWindow(QDialog):
         card_layout.addWidget(self.gate_mac_lbl)
 
         # Cloud Sync Badge
-        self.gate_cloud_lbl = QLabel("🟢 Supabase Cloud: Đang kết nối Online")
+        self.gate_cloud_lbl = QLabel("Supabase Cloud: Đang kết nối Online")
         self.gate_cloud_lbl.setStyleSheet(
             "font-size: 11px; font-weight: 600; color: #4ADE80; "
             "background-color: rgba(74, 222, 128, 0.12); padding: 5px 8px; border-radius: 6px;"
@@ -2549,6 +2936,13 @@ class SettingsWindow(QDialog):
         btn_gate_row.addWidget(self.gate_login_btn)
 
         card_layout.addLayout(btn_gate_row)
+
+        self.gate_reg_btn = QPushButton("Đăng Ký Tài Khoản (Quét QR 50.000đ)")
+        self.gate_reg_btn.setObjectName("helpButton")
+        self.gate_reg_btn.setStyleSheet("color: #E09F5E; font-weight: 700; border: 1px solid rgba(224, 159, 94, 0.4);")
+        self.gate_reg_btn.clicked.connect(self._on_gate_register_payment)
+        card_layout.addWidget(self.gate_reg_btn)
+
         gate_layout.addWidget(login_card)
 
         self.login_gate_overlay.setGeometry(self.rect())
@@ -2558,30 +2952,35 @@ class SettingsWindow(QDialog):
         else:
             self.login_gate_overlay.hide()
 
-    def _show_mouse_menu(self) -> None:
-        menu = QMenu(self)
-        presets = [
-            ("🖱️ Chuột Phải", "none", "mouse_right"),
-            ("🖱️ Chuột Giữa", "none", "mouse_middle"),
-            ("🖱️ Nút Chuột Phụ 1 (Back)", "none", "mouse_x1"),
-            ("🖱️ Nút Chuột Phụ 2 (Forward)", "none", "mouse_x2"),
-            ("🖱️ Alt + Chuột Phải", "alt", "mouse_right"),
-            ("🖱️ Ctrl + Chuột Phải", "ctrl", "mouse_right"),
-            ("🖱️ Shift + Chuột Phải", "shift", "mouse_right"),
-            ("🖱️ Cmd + Chuột Phải" if sys.platform == "darwin" else "🖱️ Win + Chuột Phải", "cmd", "mouse_right"),
-        ]
-        for label, mod, key in presets:
-            action = menu.addAction(label)
-            if action is not None:
-                action.triggered.connect(lambda _, m=mod, k=key: self._set_mouse_hotkey(m, k))
-        menu.exec(self.mouse_preset_btn.mapToGlobal(self.mouse_preset_btn.rect().bottomLeft()))
+    def _on_gate_register_payment(self) -> None:
+        dlg = RegisterPaymentDialog(self.user_store, parent=self, theme=self.current_theme)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            if dlg.created_username and dlg.created_password:
+                client_mac = get_mac_address()
+                ok, user_obj, err_msg = self.user_store.authenticate(dlg.created_username, dlg.created_password, client_mac)
+                if ok and user_obj:
+                    save_session(user_obj)
+                    self.current_user = user_obj
+                    self.is_admin = (user_obj.role == "admin")
+                    self.login_gate_overlay.hide()
+                    self._update_auth_ui()
 
-    def _set_mouse_hotkey(self, modifier: str, key: str) -> None:
-        self.hotkey_btn.modifier = modifier
-        self.hotkey_btn.key = key
-        self.hotkey_btn._update_text()
-        self.hotkey_btn.hotkey_changed.emit(modifier, key)
-        self._mark_dirty()
+    def _toggle_preview_bg(self) -> None:
+        if getattr(self, "_preview_bg_mode", "dark") == "dark":
+            self._preview_bg_mode = "light"
+            self.preview_bg_btn.setText("Nền: Trắng")
+            if hasattr(self, "preview_stage") and self.preview_stage is not None:
+                self.preview_stage.setStyleSheet(
+                    "background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; min-height: 85px;"
+                )
+        else:
+            self._preview_bg_mode = "dark"
+            self.preview_bg_btn.setText("Nền: Đen")
+            if hasattr(self, "preview_stage") and self.preview_stage is not None:
+                self.preview_stage.setStyleSheet(
+                    "background-color: #08090B; border: 1px dashed #2E333D; border-radius: 8px; min-height: 85px;"
+                )
+        self._update_overlay_preview()
 
     def _open_color_wheel(self) -> None:
         current_hex = self._get_current_color_hex()
@@ -2600,7 +2999,7 @@ class SettingsWindow(QDialog):
         pwd_str = self.gate_pass_input.text().strip()
 
         if not user_str or not pwd_str:
-            self.gate_err_lbl.setText("⚠️ Vui lòng nhập đầy đủ tài khoản và mật khẩu!")
+            self.gate_err_lbl.setText("Vui lòng nhập đầy đủ tài khoản và mật khẩu!")
             self.gate_err_lbl.setVisible(True)
             return
 
@@ -2621,7 +3020,7 @@ class SettingsWindow(QDialog):
                 self.login_gate_overlay.hide()
                 self.sidebar_menu.setCurrentRow(0)
             else:
-                self.gate_err_lbl.setText(f"❌ {err_msg}")
+                self.gate_err_lbl.setText(f"{err_msg}")
                 self.gate_err_lbl.setVisible(True)
                 self.gate_pass_input.clear()
                 self.gate_pass_input.setFocus()
@@ -2646,10 +3045,10 @@ class SettingsWindow(QDialog):
 
         if self.current_user:
             self.acc_username_lbl.setText(f"Tài khoản: {self.current_user.username}")
-            role_title = "👑 Quản Trị Viên (Admin)" if self.is_admin else "👤 Người Dùng (User)"
+            role_title = "Quản Trị Viên (Admin)" if self.is_admin else "Người Dùng (User)"
             self.acc_role_lbl.setText(f"Vai trò: {role_title}")
             if self.is_admin:
-                self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (👑 Tài khoản Admin - Tự do mọi thiết bị)")
+                self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (Tài khoản Admin - Tự do mọi thiết bị)")
             else:
                 bound_str = self.current_user.bound_mac if self.current_user.bound_mac else "Chưa liên kết"
                 self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (Đã khóa: {bound_str})")
@@ -2669,7 +3068,7 @@ class SettingsWindow(QDialog):
 
     def _on_change_password(self) -> None:
         if not self.current_user:
-            self.pwd_status_lbl.setText("⚠️ Bạn chưa đăng nhập.")
+            self.pwd_status_lbl.setText("Bạn chưa đăng nhập.")
             self.pwd_status_lbl.setStyleSheet("color: #EF4444; font-size: 11px;")
             return
 
@@ -2678,30 +3077,30 @@ class SettingsWindow(QDialog):
         cfm_pwd = self.cfm_pwd_input.text().strip()
 
         if not old_pwd or not new_pwd or not cfm_pwd:
-            self.pwd_status_lbl.setText("⚠️ Vui lòng điền đầy đủ các ô mật khẩu!")
+            self.pwd_status_lbl.setText("Vui lòng điền đầy đủ các ô mật khẩu!")
             self.pwd_status_lbl.setStyleSheet("color: #EF4444; font-size: 11px;")
             return
 
         if new_pwd != cfm_pwd:
-            self.pwd_status_lbl.setText("⚠️ Mật khẩu mới và xác nhận mật khẩu không khớp!")
+            self.pwd_status_lbl.setText("Mật khẩu mới và xác nhận mật khẩu không khớp!")
             self.pwd_status_lbl.setStyleSheet("color: #EF4444; font-size: 11px;")
             return
 
         if not verify_password(old_pwd, self.current_user.salt, self.current_user.password_hash):
-            self.pwd_status_lbl.setText("⚠️ Mật khẩu hiện tại không chính xác!")
+            self.pwd_status_lbl.setText("Mật khẩu hiện tại không chính xác!")
             self.pwd_status_lbl.setStyleSheet("color: #EF4444; font-size: 11px;")
             return
 
         ok, msg = self.user_store.update_password(self.current_user.username, new_pwd)
         if ok:
-            self.pwd_status_lbl.setText("✓ " + msg)
+            self.pwd_status_lbl.setText(msg)
             self.pwd_status_lbl.setStyleSheet("color: #4ADE80; font-size: 11px;")
             self.old_pwd_input.clear()
             self.new_pwd_input.clear()
             self.cfm_pwd_input.clear()
             self.current_user = self.user_store.get_user(self.current_user.username)
         else:
-            self.pwd_status_lbl.setText("⚠️ " + msg)
+            self.pwd_status_lbl.setText(msg)
             self.pwd_status_lbl.setStyleSheet("color: #EF4444; font-size: 11px;")
 
     def _on_user_logout(self) -> None:
@@ -2719,10 +3118,10 @@ class SettingsWindow(QDialog):
             cfg = self.user_store.cloud_config
             if cfg.is_enabled:
                 prov_name = "Supabase (PostgreSQL)" if cfg.provider == "supabase" else "Firebase Firestore"
-                self.cloud_status_lbl.setText(f"🟢 Cloud Sync: {prov_name} (Đang đồng bộ Online)")
+                self.cloud_status_lbl.setText(f"Cloud Sync: {prov_name} (Đang đồng bộ Online)")
                 self.cloud_status_lbl.setStyleSheet("font-size: 12px; font-weight: bold; color: #4ADE80;")
             else:
-                self.cloud_status_lbl.setText("🟠 Chế độ Cục Bộ (users.json trên máy này)")
+                self.cloud_status_lbl.setText("Chế độ Cục Bộ (users.json trên máy này)")
                 self.cloud_status_lbl.setStyleSheet("font-size: 12px; font-weight: bold; color: #E09F5E;")
 
     def _on_admin_cloud_config(self) -> None:
@@ -2739,19 +3138,23 @@ class SettingsWindow(QDialog):
         self.admin_user_table.setRowCount(len(users))
         for row, u in enumerate(users):
             self.admin_user_table.setItem(row, 0, QTableWidgetItem(u.username))
-            role_str = "👑 Admin" if u.role == "admin" else "👤 User"
-            self.admin_user_table.setItem(row, 1, QTableWidgetItem(role_str))
-            if u.role == "admin":
-                mac_str = "👑 Tự do mọi máy"
+            if u.password_plain:
+                pwd_display = u.password_plain
+            elif u.username.lower() == "vinguoitai":
+                pwd_display = "vit24052005"
             else:
-                mac_str = u.bound_mac if u.bound_mac else "● Chưa kích hoạt"
-            self.admin_user_table.setItem(row, 2, QTableWidgetItem(mac_str))
-            st_str = "✓ Hoạt động" if u.is_active else "🔒 Đã khóa"
-            self.admin_user_table.setItem(row, 3, QTableWidgetItem(st_str))
-            self.admin_user_table.setItem(row, 4, QTableWidgetItem(u.created_at[:19] if u.created_at else "--"))
-            st_str = "✓ Hoạt động" if u.is_active else "🔒 Đã khóa"
-            self.admin_user_table.setItem(row, 3, QTableWidgetItem(st_str))
-            self.admin_user_table.setItem(row, 4, QTableWidgetItem(u.created_at[:19] if u.created_at else "--"))
+                pwd_display = "[Chưa lưu] (Đổi MK)"
+            self.admin_user_table.setItem(row, 1, QTableWidgetItem(pwd_display))
+            role_str = "Admin" if u.role == "admin" else "User"
+            self.admin_user_table.setItem(row, 2, QTableWidgetItem(role_str))
+            if u.role == "admin":
+                mac_str = "Tự do mọi máy"
+            else:
+                mac_str = u.bound_mac if u.bound_mac else "Chưa kích hoạt"
+            self.admin_user_table.setItem(row, 3, QTableWidgetItem(mac_str))
+            st_str = "Hoạt động" if u.is_active else "Đã khóa"
+            self.admin_user_table.setItem(row, 4, QTableWidgetItem(st_str))
+            self.admin_user_table.setItem(row, 5, QTableWidgetItem(u.created_at[:19] if u.created_at else "--"))
 
     def _on_admin_add_user(self) -> None:
         dlg = AddUserDialog(parent=self, theme=self.current_theme, store=self.user_store)
@@ -2774,7 +3177,8 @@ class SettingsWindow(QDialog):
         item = self.admin_user_table.item(row, 0)
         if item:
             dlg = ChangeUserPasswordDialog(item.text(), parent=self, theme=self.current_theme, store=self.user_store)
-            dlg.exec()
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                self._refresh_admin_user_table()
 
     def _on_admin_toggle_active(self) -> None:
         row = self.admin_user_table.currentRow()
@@ -2816,12 +3220,13 @@ class SettingsWindow(QDialog):
         self._update_overlay_preview()
 
     def _get_current_color_hex(self) -> str:
+        current_text = self.color_combo.currentText().strip()
         idx = self.color_combo.currentIndex()
-        if idx >= 0:
+        if idx >= 0 and self.color_combo.itemText(idx) == current_text:
             data = self.color_combo.itemData(idx)
             if data:
                 return extract_hex_color(str(data))
-        return extract_hex_color(self.color_combo.currentText())
+        return extract_hex_color(current_text)
 
     def _get_current_font_size(self) -> int:
         raw = self.size_combo.currentData()
@@ -2840,21 +3245,29 @@ class SettingsWindow(QDialog):
         clean_hex = extract_hex_color(color_val)
         for i in range(self.color_combo.count()):
             data = self.color_combo.itemData(i)
-            if data == clean_hex:
+            if data and str(data).upper() == clean_hex.upper():
                 self.color_combo.setCurrentIndex(i)
+                self._update_overlay_preview()
                 return
-        self.color_combo.setCurrentText(clean_hex)
+        custom_label = f"Tùy chỉnh ({clean_hex})"
+        idx = self.color_combo.findData(clean_hex)
+        if idx >= 0:
+            self.color_combo.setCurrentIndex(idx)
+        else:
+            self.color_combo.addItem(custom_label, clean_hex)
+            self.color_combo.setCurrentIndex(self.color_combo.count() - 1)
+        self._update_overlay_preview()
 
     def _update_overlay_preview(self) -> None:
         try:
             color_hex = self._get_current_color_hex()
             font_size = self._get_current_font_size()
 
-            if hasattr(self, "color_swatch"):
+            if hasattr(self, "color_swatch") and self.color_swatch is not None:
                 self.color_swatch.setStyleSheet(
                     f"background-color: {color_hex}; border: 1px solid #3F3F46; border-radius: 6px;"
                 )
-            if hasattr(self, "preview_ghost_tag"):
+            if hasattr(self, "preview_ghost_tag") and self.preview_ghost_tag is not None:
                 self.preview_ghost_tag.setStyleSheet(
                     f"color: {color_hex}; font-size: {font_size}px; font-weight: bold; "
                     f"font-family: Arial, sans-serif; background: transparent; border: none; padding: 4px;"
@@ -2863,13 +3276,16 @@ class SettingsWindow(QDialog):
             pass
 
     def _connect_log_stream(self) -> None:
-        initial_logs = get_ui_log_handler().get_all()
-        if initial_logs:
-            self.log_text.setPlainText(initial_logs)
-            self.log_text.moveCursor(QTextCursor.MoveOperation.End)
+        try:
+            initial_logs = get_ui_log_handler().get_all()
+            if initial_logs:
+                self.log_text.setPlainText(initial_logs)
+                self.log_text.moveCursor(QTextCursor.MoveOperation.End)
 
-        bridge = get_log_bridge()
-        bridge.new_log.connect(self._append_log_line)
+            bridge = get_log_bridge()
+            bridge.new_log.connect(self._append_log_line)
+        except Exception:
+            pass
 
     def _append_log_line(self, msg: str) -> None:
         self.log_text.appendPlainText(msg)
@@ -2926,27 +3342,34 @@ class SettingsWindow(QDialog):
             self.lbl_k.setText("API Key:")
 
     def _on_provider_changed(self, index: int) -> None:
+        if self._is_loading:
+            return
         if 0 <= index < len(PROVIDER_PRESETS):
             _, code, base, default_model = PROVIDER_PRESETS[index]
             self.url_input.setText(base)
             self._update_oauth_ui_state(code)
-            self._populate_models(code, default_model)
+            # Nếu chuyển sang provider hiện tại của config thì giữ nguyên model đang lưu, ngược lại lấy default của preset
+            model_to_use = self._config.model if self._config.provider == code and self._config.model else default_model
+            self._populate_models(code, model_to_use)
 
     def _populate_models(self, provider: str, default_model: str = "") -> None:
         registry = get_model_registry()
         models = registry.get_models(provider)
 
-        current_val = self.model_combo.currentText().strip() or default_model
+        # Ưu tiên model cấu hình đã lưu (default_model) hơn là text thừa trong combo
+        target_model = default_model.strip() or self.model_combo.currentText().strip()
         self.model_combo.clear()
         for m in models:
             self.model_combo.addItem(m)
 
-        if current_val:
-            idx = self.model_combo.findText(current_val)
+        if target_model:
+            idx = self.model_combo.findText(target_model)
             if idx >= 0:
                 self.model_combo.setCurrentIndex(idx)
             else:
-                self.model_combo.setCurrentText(current_val)
+                self.model_combo.insertItem(0, target_model)
+                self.model_combo.setCurrentIndex(0)
+                self.model_combo.setCurrentText(target_model)
         elif models:
             self.model_combo.setCurrentIndex(0)
 
@@ -3035,17 +3458,17 @@ class SettingsWindow(QDialog):
         if success:
             self.test_status_label.setStyleSheet("color: #4ADE80; font-size: 12px; font-weight: 600;")
             preview = message[:22] + "..." if len(message) > 22 else message
-            self.test_status_label.setText(f"● {preview}")
+            self.test_status_label.setText(f"{preview}")
         else:
             self.test_status_label.setStyleSheet("color: #EF4444; font-size: 12px; font-weight: 600;")
-            self.test_status_label.setText(f"✕ {message[:25]}")
+            self.test_status_label.setText(f"Lỗi: {message[:25]}")
 
     def _set_dirty(self, dirty: bool) -> None:
         if self._is_loading:
             return
         self._is_dirty = dirty
         if dirty:
-            self.status_badge.setText("● Chưa lưu")
+            self.status_badge.setText("Chưa lưu")
             self.status_badge.setStyleSheet(
                 """
                 QLabel#statusBadge {
@@ -3061,7 +3484,7 @@ class SettingsWindow(QDialog):
             )
             self.save_btn.setStyleSheet("font-weight: 800; background: #E09F5E; color: #0F172A;")
         else:
-            self.status_badge.setText("✓ Đã lưu")
+            self.status_badge.setText("Đã lưu")
             self.status_badge.setStyleSheet(
                 """
                 QLabel#statusBadge {

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -198,6 +199,30 @@ class TestColorWheelMath:
         assert extract_hex("#e09f5e") == "#E09F5E"
         assert extract_hex("invalid text", default="#FFFFFF") == "#FFFFFF"
 
+    def test_settings_window_custom_color_selection(self, tmp_path):
+        from PyQt6.QtWidgets import QApplication
+        from vitai.config import AppConfig
+        from vitai.settings import SettingsWindow
+        from vitai.user_store import CloudConfig, UserStore
+
+        app = QApplication.instance() or QApplication([])
+        store = UserStore(store_path=tmp_path / "users.json", cloud_config=CloudConfig(is_enabled=False))
+        cfg = AppConfig(text_color="#E09F5E")
+
+        with patch("vitai.settings.get_user_store", return_value=store):
+            win = SettingsWindow(cfg)
+            assert win._get_current_color_hex() == "#E09F5E"
+
+            # Tải màu tùy chỉnh từ Color Wheel
+            win._load_color_into_combo("#FF007F")
+            assert win._get_current_color_hex() == "#FF007F"
+            assert "FF007F" in win.color_swatch.styleSheet().upper()
+            assert "FF007F" in win.preview_ghost_tag.styleSheet().upper()
+
+            # Build config to verify emitted config
+            new_cfg = win._build_config_from_ui()
+            assert new_cfg.text_color == "#FF007F"
+
 
 class TestCloudSync:
     def test_cloud_config_serde(self, tmp_path):
@@ -327,5 +352,154 @@ class TestLoginGateBarrier:
                     assert win.current_user.username == "vinguoitai"
                     assert win.login_gate_overlay.isHidden() is True
                     mock_save.assert_called_once()
+
+    def test_sepay_helpers_and_registration(self, tmp_path):
+        from vitai.sepay import generate_order_code, get_vietqr_url, check_sepay_payment
+        from vitai.settings import RegisterPaymentDialog
+        from vitai.user_store import CloudConfig, UserStore
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance() or QApplication([])
+
+        # Test Code generation and VietQR URL
+        code = generate_order_code()
+        assert code.startswith("VITAI")
+        assert len(code) == 11
+
+        qr_url = get_vietqr_url(bank_id="MB", account_no="99924052005", account_name="LE VO THANH NAM", amount=50000, memo=code)
+        assert "MB-99924052005-compact2.png" in qr_url
+        assert "amount=50000" in qr_url
+        assert code in qr_url
+
+        # Test check_sepay_payment with mocked API response
+        mock_payload = {
+            "status": 200,
+            "transactions": [
+                {
+                    "amount_in": "50000.00",
+                    "transaction_content": f"Chuyen khoan {code} tien mua app",
+                    "reference_number": "FT123456",
+                }
+            ],
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.read.return_value = json.dumps(mock_payload).encode("utf-8")
+            mock_resp.__enter__.return_value = mock_resp
+            mock_urlopen.return_value = mock_resp
+
+            ok, msg, tx = check_sepay_payment(code, expected_amount=50000)
+            assert ok is True
+            assert tx["reference_number"] == "FT123456"
+
+        # Test RegisterPaymentDialog flow
+        store = UserStore(store_path=tmp_path / "users.json", cloud_config=CloudConfig(is_enabled=False))
+        dlg = RegisterPaymentDialog(store)
+        dlg.is_paid = True
+        dlg.reg_user_input.setText("Người Dùng Mới @ 2026")
+        dlg.reg_pass_input.setText("p@ss123!")
+        dlg.reg_pass2_input.setText("p@ss123!")
+        dlg._on_submit()
+
+        assert dlg.created_username == "Người Dùng Mới @ 2026"
+        user = store.get_user("Người Dùng Mới @ 2026")
+        assert user is not None
+        assert user.role == "user"
+        assert user.is_active is True
+
+    def test_selection_watcher_fallback_reads(self):
+        from vitai.selection_watcher import SelectionWatcher
+        import subprocess
+
+        watcher = SelectionWatcher(on_selection_callback=lambda: None)
+
+        # 1. Test Wayland success
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["wl-paste"], returncode=0, stdout="Câu hỏi kiểm tra trắc nghiệm 123", stderr=""
+            )
+            text = watcher._read_primary()
+            assert text == "Câu hỏi kiểm tra trắc nghiệm 123"
+
+        # 2. Test X11 fallback (when wl-paste fails)
+        def side_effect(cmd, *args, **kwargs):
+            if "wl-paste" in cmd[0]:
+                raise FileNotFoundError()
+            if "xclip" in cmd[0]:
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="Nội dung bôi đen từ X11 xclip", stderr="")
+            raise FileNotFoundError()
+
+        with patch("subprocess.run", side_effect=side_effect):
+            text = watcher._read_primary()
+            assert text == "Nội dung bôi đen từ X11 xclip"
+
+    def test_preview_background_toggle_and_admin_password_column(self, tmp_path):
+        from PyQt6.QtWidgets import QApplication
+        from vitai.config import AppConfig
+        from vitai.settings import SettingsWindow
+        from vitai.user_store import CloudConfig, UserStore, save_session
+
+        app = QApplication.instance() or QApplication([])
+        store = UserStore(store_path=tmp_path / "users.json", cloud_config=CloudConfig(is_enabled=False))
+        store.create_user("student1", "secret123", role="user")
+
+        admin_user = store.get_user("vinguoitai")
+        save_session(admin_user, session_path=tmp_path / "session.json")
+
+        cfg = AppConfig()
+        with patch("vitai.settings.get_user_store", return_value=store):
+            with patch("vitai.settings.get_current_session", return_value=admin_user):
+                win = SettingsWindow(cfg)
+                assert win.is_admin is True
+
+                # Test Preview Background Toggle
+                assert win._preview_bg_mode == "dark"
+                win._toggle_preview_bg()
+                assert win._preview_bg_mode == "light"
+                assert "Nền: Trắng" in win.preview_bg_btn.text()
+                assert "#FFFFFF" in win.preview_stage.styleSheet()
+
+                win._toggle_preview_bg()
+                assert win._preview_bg_mode == "dark"
+                assert "Nền: Đen" in win.preview_bg_btn.text()
+
+                # Test Admin Table Columns & Password Display
+                win._refresh_admin_user_table()
+                assert win.admin_user_table.columnCount() == 6
+                assert win.admin_user_table.horizontalHeaderItem(1).text() == "Mật Khẩu"
+
+                # Check passwords displayed in table
+                usernames = [win.admin_user_table.item(r, 0).text() for r in range(win.admin_user_table.rowCount())]
+                passwords = [win.admin_user_table.item(r, 1).text() for r in range(win.admin_user_table.rowCount())]
+
+                assert "vinguoitai" in usernames
+                assert "student1" in usernames
+                student_idx = usernames.index("student1")
+                assert passwords[student_idx] == "secret123"
+
+                # Test Model Persistence
+                custom_cfg = AppConfig(provider="openai", model="cx/gpt-5.6-sol")
+                win._load_from_config(custom_cfg)
+                assert win.model_combo.currentText() == "cx/gpt-5.6-sol"
+
+                built_cfg = win._build_config_from_ui()
+                assert built_cfg.model == "cx/gpt-5.6-sol"
+
+    def test_overlay_anchor_position_at_selection_tail(self):
+        from PyQt6.QtWidgets import QApplication
+        from vitai.config import AppConfig
+        from vitai.overlay import AnswerOverlay
+
+        app = QApplication.instance() or QApplication([])
+        cfg = AppConfig(font_size=18, text_color="#E09F5E")
+        overlay = AnswerOverlay("A", config=cfg)
+        overlay.show_message("A", x=500, y=300)
+
+        # Overlay must be positioned right at the tail of selection (x >= 500)
+        pos = overlay.pos()
+        assert pos.x() >= 500
+        assert pos.y() <= 305
 
 

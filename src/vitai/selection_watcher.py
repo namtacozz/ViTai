@@ -45,6 +45,8 @@ class SelectionWatcher:
     def _read_primary(self) -> str | None:
         if sys.platform == "win32":
             return None
+
+        # 1. Linux Wayland: wl-paste --primary
         try:
             res = subprocess.run(
                 ["wl-paste", "--primary", "--no-newline"],
@@ -56,6 +58,33 @@ class SelectionWatcher:
                 return res.stdout.strip()
         except Exception:
             pass
+
+        # 2. Linux X11: xclip / xsel
+        for cmd in [
+            ["xclip", "-selection", "primary", "-o"],
+            ["xsel", "--primary", "--output"],
+        ]:
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=1)
+                if res.returncode == 0 and res.stdout.strip():
+                    return res.stdout.strip()
+            except Exception:
+                continue
+
+        # 3. Qt QClipboard Selection mode (Cross-desktop Linux fallback)
+        try:
+            from PyQt6.QtGui import QClipboard, QGuiApplication
+
+            app = QGuiApplication.instance()
+            if app:
+                cb = app.clipboard()
+                if cb:
+                    sel = cb.text(QClipboard.Mode.Selection)
+                    if sel and sel.strip():
+                        return sel.strip()
+        except Exception:
+            pass
+
         return None
 
     def _watch_loop(self) -> None:

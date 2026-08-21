@@ -289,7 +289,7 @@ class CircularColorPickerDialog(QDialog):
         main_layout.setSpacing(14)
 
         # Header Title
-        title_label = QLabel("🎨 BẢNG PHỔ MÀU ĐÁP ÁN (360° WHEEL)")
+        title_label = QLabel("BẢNG PHỔ MÀU ĐÁP ÁN (360° WHEEL)")
         title_label.setStyleSheet("font-size: 13px; font-weight: 800; color: #E09F5E; letter-spacing: 0.5px;")
         main_layout.addWidget(title_label)
 

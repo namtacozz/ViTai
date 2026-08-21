@@ -2,16 +2,49 @@ name: Build & Release ViTai
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxtst-dev wl-clipboard
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest evdev python-xlib
+
+      - name: Run Pytest Suite
+        run: |
+          pytest -v
+
   build-windows:
     name: Build Windows Binary
+    needs: test
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -46,6 +79,7 @@ jobs:
 
   build-linux:
     name: Build Linux Binary
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -70,17 +104,8 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --noconfirm --onedir --windowed \
-            --name "ViTai" \
-            --icon "assets/icon.ico" \
-            --add-data "assets:assets" \
-            --paths "src" \
-            src/vitai/main.py
-          cp .env.example dist/ViTai/.env 2>/dev/null || true
-          cp README.md dist/ViTai/ 2>/dev/null || true
-          cd dist
-          tar -czvf ViTai-Linux-x86_64.tar.gz ViTai
-          cd ..
+          chmod +x build_linux.sh
+          ./build_linux.sh
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -90,6 +115,7 @@ jobs:
 
   build-macos:
     name: Build macOS App
+    needs: test
     runs-on: macos-latest
     steps:
       - name: Checkout Code
@@ -116,7 +142,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ViTai-MacOS
-          path: dist/ViTai-MacOS.tar.gz
+          path: dist/ViTai-v3.0.0-macos-*.tar.gz
 
   release:
     name: Publish GitHub Release
@@ -148,7 +174,7 @@ jobs:
           files: |
             release/ViTai-Windows-x64.zip
             release/ViTai-Linux-x86_64.tar.gz
-            release/ViTai-MacOS.tar.gz
+            release/ViTai-v3.0.0-macos-*.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true

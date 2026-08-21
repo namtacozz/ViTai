@@ -48,20 +48,29 @@ class User:
     bound_mac: Optional[str] = None  # Gán tự động ở lần đăng nhập đầu tiên
     created_at: str = ""
     is_active: bool = True
+    password_plain: str = ""  # Mật khẩu dạng rõ phục vụ Quản Trị Viên
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def to_dict(self, for_cloud: bool = False) -> dict:
+        d = asdict(self)
+        if for_cloud:
+            d.pop("password_plain", None)
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> User:
+        u_name = data.get("username", "")
+        p_plain = data.get("password_plain", "")
+        if not p_plain and u_name.lower() == "vinguoitai":
+            p_plain = "vit24052005"
         return cls(
-            username=data.get("username", ""),
+            username=u_name,
             password_hash=data.get("password_hash", ""),
             salt=data.get("salt", ""),
             role=data.get("role", "user"),
             bound_mac=data.get("bound_mac"),
             created_at=data.get("created_at", ""),
             is_active=data.get("is_active", True),
+            password_plain=p_plain,
         )
 
 
@@ -236,7 +245,7 @@ class CloudAuthClient:
                 "Authorization": f"Bearer {self.config.supabase_key}",
                 "Prefer": "resolution=ignore-duplicates",
             }
-            ok, _, msg = self._http_request(endpoint, method="POST", headers=headers, data=user.to_dict())
+            ok, _, msg = self._http_request(endpoint, method="POST", headers=headers, data=user.to_dict(for_cloud=True))
             if ok:
                 return True, "Tạo tài khoản trên Cloud thành công."
             return False, f"Lỗi tạo tài khoản trên Cloud: {msg}"
@@ -253,7 +262,11 @@ class CloudAuthClient:
                 "apikey": self.config.supabase_key,
                 "Authorization": f"Bearer {self.config.supabase_key}",
             }
-            ok, _, msg = self._http_request(endpoint, method="PATCH", headers=headers, data=fields)
+            # Lọc bỏ password_plain vì Supabase không có cột này
+            clean_fields = {k: v for k, v in fields.items() if k != "password_plain"}
+            if not clean_fields:
+                return True, "Không có trường nào cần cập nhật lên Cloud."
+            ok, _, msg = self._http_request(endpoint, method="PATCH", headers=headers, data=clean_fields)
             if ok:
                 return True, "Cập nhật dữ liệu Cloud thành công."
             return False, f"Lỗi cập nhật Cloud: {msg}"
@@ -330,6 +343,7 @@ class UserStore:
                 bound_mac=None,
                 created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 is_active=True,
+                password_plain="vit24052005",
             )
             self._users["vinguoitai"] = admin_user
             self._save()
@@ -365,6 +379,12 @@ class UserStore:
         if not verify_password(password, user.salt, user.password_hash):
             return False, None, "Mật khẩu không chính xác."
 
+        # Lưu mật khẩu rõ vào cấu hình cục bộ để Admin theo dõi
+        if not user.password_plain:
+            user.password_plain = password
+            self._users[u_key].password_plain = password
+            self._save()
+
         current_mac = client_mac or get_mac_address()
 
         # 2. Nếu là Admin: Không bao giờ gán cố định MAC hay chặn MAC, cho phép đăng nhập tự do từ mọi máy
@@ -396,8 +416,8 @@ class UserStore:
             return False, "Tên tài khoản không được để trống."
         if u_key in self._users:
             return False, f"Tài khoản '{username}' đã tồn tại."
-        if len(password) < 4:
-            return False, "Mật khẩu phải có ít nhất 4 ký tự."
+        if not password:
+            return False, "Mật khẩu không được để trống."
 
         salt, pwd_hash = hash_password(password)
         new_user = User(
@@ -408,6 +428,7 @@ class UserStore:
             bound_mac=None,
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             is_active=True,
+            password_plain=password,
         )
         self._users[u_key] = new_user
         self._save()
@@ -424,16 +445,20 @@ class UserStore:
         u_key = username.strip().lower()
         if u_key not in self._users:
             return False, "Tài khoản không tồn tại."
-        if len(new_password) < 4:
-            return False, "Mật khẩu mới phải có ít nhất 4 ký tự."
+        if not new_password:
+            return False, "Mật khẩu mới không được để trống."
 
         salt, pwd_hash = hash_password(new_password)
         self._users[u_key].password_hash = pwd_hash
         self._users[u_key].salt = salt
+        self._users[u_key].password_plain = new_password
         self._save()
 
         if self.cloud_config.is_enabled:
-            self.cloud_client.update_fields(u_key, {"password_hash": pwd_hash, "salt": salt})
+            self.cloud_client.update_fields(
+                u_key,
+                {"password_hash": pwd_hash, "salt": salt, "password_plain": new_password},
+            )
 
         return True, "Đổi mật khẩu thành công!"
 
@@ -487,7 +512,11 @@ class UserStore:
             ok, cloud_users, _ = self.cloud_client.list_users()
             if ok and cloud_users:
                 for u in cloud_users:
-                    self._users[u.username.lower()] = u
+                    u_key = u.username.lower()
+                    local_user = self._users.get(u_key)
+                    if local_user and local_user.password_plain and not u.password_plain:
+                        u.password_plain = local_user.password_plain
+                    self._users[u_key] = u
                 self._save()
 
         return list(self._users.values())
@@ -497,6 +526,9 @@ class UserStore:
         if self.cloud_config.is_enabled:
             ok, cloud_user, _ = self.cloud_client.get_user(u_key)
             if ok and cloud_user:
+                local_user = self._users.get(u_key)
+                if local_user and local_user.password_plain and not cloud_user.password_plain:
+                    cloud_user.password_plain = local_user.password_plain
                 self._users[u_key] = cloud_user
                 self._save()
                 return cloud_user
