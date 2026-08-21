@@ -298,15 +298,32 @@ class ViTaiApp:
     def _start_answer_request(self) -> None:
         threading.Thread(target=self._process_selection, daemon=True).start()
 
+    def _is_hotkey_mouse_button(self, button: mouse.Button | None) -> bool:
+        if not self.config.hotkey_key.startswith("mouse_"):
+            return False
+        if button == mouse.Button.right and self.config.hotkey_key == "mouse_right":
+            return True
+        if button == mouse.Button.middle and self.config.hotkey_key == "mouse_middle":
+            return True
+        if button == mouse.Button.left and self.config.hotkey_key == "mouse_left":
+            return True
+        if button == getattr(mouse.Button, "x1", None) and self.config.hotkey_key in ("mouse_x1", "mouse_side"):
+            return True
+        if button == getattr(mouse.Button, "x2", None) and self.config.hotkey_key in ("mouse_x2", "mouse_extra"):
+            return True
+        return False
+
     def _on_kernel_mouse_click(self, x: int, y: int, pressed: bool) -> None:
         if pressed:
-            self.bridge.hide_overlay_if_outside_ready.emit(x, y)
+            if not self.config.hotkey_key.startswith("mouse_"):
+                self.bridge.hide_overlay_if_outside_ready.emit(x, y)
         else:
             self.selection_anchor = (x, y)
 
     def _on_mouse_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
         if pressed:
-            self.bridge.hide_overlay_if_outside_ready.emit(x, y)
+            if not self._is_hotkey_mouse_button(button):
+                self.bridge.hide_overlay_if_outside_ready.emit(x, y)
             if button == mouse.Button.left:
                 self.mouse_press_pos = (x, y)
             return
@@ -443,8 +460,12 @@ def main() -> int:
 
     app = ViTaiApp()
     from vitai.token_store import get_token_store
+    from vitai.user_store import get_current_session, get_user_store
+    user_store = get_user_store()
+    current_user = get_current_session(user_store)
+
     is_auth = bool(app.config.api_key) or get_token_store().is_authenticated(app.config.provider) or app.config.provider in ("9router", "openrouter")
-    if "--settings" in sys.argv or "--menu" in sys.argv or not is_auth:
+    if current_user is None or "--settings" in sys.argv or "--menu" in sys.argv or not is_auth:
         app.show_settings()
     return app.run()
 

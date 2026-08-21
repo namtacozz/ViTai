@@ -14,6 +14,10 @@ def _get_linux_autostart_path() -> Path:
     return Path(config_dir) / "autostart" / "vitai.desktop"
 
 
+def _get_macos_launchagent_path() -> Path:
+    return Path.home() / "Library" / "LaunchAgents" / "com.vitai.app.plist"
+
+
 def is_admin() -> bool:
     """Return True if the current process has administrator privileges."""
     if sys.platform == "win32":
@@ -48,6 +52,49 @@ def set_startup(enable: bool) -> None:
             winreg.CloseKey(key)
         except OSError:
             pass
+    elif sys.platform == "darwin":
+        plist_file = _get_macos_launchagent_path()
+        if enable:
+            plist_file.parent.mkdir(parents=True, exist_ok=True)
+            if getattr(sys, "frozen", False):
+                app_path = sys.executable
+                args_xml = f"        <string>{app_path}</string>"
+            else:
+                py_exe = sys.executable
+                script_path = os.path.abspath(sys.argv[0])
+                args_xml = f"""        <string>{py_exe}</string>
+        <string>{script_path}</string>"""
+
+            plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vitai.app</string>
+    <key>ProgramArguments</key>
+    <array>
+{args_xml}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/vitai.err</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/vitai.out</string>
+</dict>
+</plist>
+"""
+            try:
+                plist_file.write_text(plist_content, encoding="utf-8")
+            except OSError:
+                pass
+        else:
+            try:
+                plist_file.unlink(missing_ok=True)
+            except OSError:
+                pass
     elif sys.platform.startswith("linux"):
         desktop_file = _get_linux_autostart_path()
         if enable:
@@ -94,6 +141,9 @@ def get_startup_enabled() -> bool:
             return True
         except (FileNotFoundError, OSError):
             return False
+    elif sys.platform == "darwin":
+        plist_file = _get_macos_launchagent_path()
+        return plist_file.exists()
     elif sys.platform.startswith("linux"):
         desktop_file = _get_linux_autostart_path()
         return desktop_file.exists()

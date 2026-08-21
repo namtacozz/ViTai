@@ -1,11 +1,12 @@
 <div align="center">
 
 # 👻 ViTai v3.0.0 — Vì Người Tài
-### *Siêu trợ lý AI bôi đen cực nhanh — Ẩn mình tuyệt đối — Tối ưu cho Fedora (Wayland) & Windows*
+### *Siêu trợ lý AI bôi đen cực nhanh — Ẩn mình tuyệt đối — Tối ưu cho macOS, Linux (Fedora Wayland) & Windows*
 
 [![Version](https://img.shields.io/badge/Version-v3.0.0-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?style=for-the-badge&logo=qt&logoColor=white)](https://www.qt.io/)
+[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%2F%20Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
 [![Fedora](https://img.shields.io/badge/Linux-Fedora%2044%20(Wayland)-51A2DA?style=for-the-badge&logo=fedora&logoColor=white)](https://getfedora.org/)
 [![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
@@ -24,7 +25,7 @@
 
 Bước sang phiên bản **v3.0.0**, ViTai được tái cấu trúc toàn diện với triết lý **"Zero-Footprint" (Không để lại bất kỳ dấu vết nào)**:
 * Không biểu tượng thanh tác vụ hay khay hệ thống (System Tray).
-* Không xuất hiện trong trình chuyển cửa sổ **Alt + Tab** của hệ điều hành.
+* Không xuất hiện trong trình chuyển cửa sổ **Alt + Tab** / **Cmd + Tab** của hệ điều hành.
 * Hiển thị duy nhất một **ký tự đáp án** nổi nhẹ nhàng ngay sát đuôi đoạn văn bản vừa bôi đen và biến mất ngay lập tức khi bạn bấm chuột.
 
 ---
@@ -34,9 +35,9 @@ Bước sang phiên bản **v3.0.0**, ViTai được tái cấu trúc toàn di�
 | Tính năng | Mô tả chi tiết |
 |---|---|
 | 👻 **Pure Ghost Direct Overlay** | Lớp phủ trong suốt 100%, không viền, không khung nền. Chỉ hiển thị duy nhất 1 ký tự đáp án thanh thoát (`A`, `B`, `C`, `D`...) ngay sát đuôi phần văn bản bôi đen / vị trí con trỏ chuột. |
-| 🖱️ **Kernel Mouse Tracking & Click-to-Dismiss** | Sử dụng driver cấp Linux Kernel (`evdev`) để bắt chính xác tọa độ nhả chuột khi vừa bôi đen xong. Bất kỳ thao tác click chuột nào trên màn hình cũng lập tức giải phóng và đóng overlay. |
-| 🫥 **Zero System Tray & Zero Alt-Tab** | Hoạt động ngầm 100% trong nền hệ thống mà không tạo icon System Tray làm phiền. Hoàn toàn ẩn khỏi danh sách cửa sổ Alt-Tab của Window Manager. |
-| ⌨️ **Phím tắt Menu Cài Đặt `Ctrl + Alt + V`** | Bật/tắt cửa sổ Cài đặt ("Vì Người Tài") bất kỳ lúc nào một cách bí mật thông qua phím tắt toàn cục. |
+| 🖱️ **Kernel Mouse Tracking & Click-to-Dismiss** | Bắt chính xác tọa độ nhả chuột khi vừa bôi đen xong (driver kernel `evdev` trên Linux, `Quartz/pynput` trên macOS/Windows). Bất kỳ thao tác click chuột nào trên màn hình cũng lập tức giải phóng và đóng overlay. |
+| 🫥 **Zero System Tray & Zero Alt-Tab / Cmd-Tab** | Hoạt động ngầm 100% trong nền hệ thống mà không tạo icon System Tray làm phiền. Hoàn toàn ẩn khỏi danh sách cửa sổ Alt-Tab / Cmd-Tab của Window Manager. |
+| ⌨️ **Phím tắt Menu Cài Đặt `Ctrl + Alt + V` / `Cmd + Alt + V`** | Bật/tắt cửa sổ Cài đặt ("Vì Người Tài") bất kỳ lúc nào một cách bí mật thông qua phím tắt toàn cục. |
 | ⚡ **Fast Mode (Zero-Hotkey)** | Tự động phân tích câu hỏi ngay khi người dùng vừa bôi đen và nhả chuột xong (debounce 0.75s). Không cần chạm tay vào bàn phím. |
 | 🎨 **State-Aware UI & Unsaved Protection** | Giao diện cài đặt hiện đại 2 thẻ chính (**"Vỏ"** & **"Lõi"**), tích hợp huy hiệu trạng thái `● Chưa lưu` / `✓ Đã lưu` và hộp thoại cảnh báo chống mất dữ liệu khi đóng cửa sổ. |
 | 🔐 **Nhật Ký Bảo Mật Admin** | Thẻ **Nhật Ký** hoạt động được ẩn mặc định. Mở khóa bí mật bằng cách nhấn 3 lần liên tiếp vào logo **ViTai** và nhập mật khẩu Admin. |
@@ -51,8 +52,15 @@ Bước sang phiên bản **v3.0.0**, ViTai được tái cấu trúc toàn di�
 
 Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và tải bản tương ứng với hệ điều hành:
 
+* 🍎 **macOS**: Tải `ViTai-v3.0.0-macos-arm64.tar.gz` (Apple Silicon M1/M2/M3/M4) hoặc `ViTai-v3.0.0-macos-x86_64.tar.gz` (Intel) → Giải nén → Mở `ViTai.app` hoặc chạy `./ViTai`.
 * 🪟 **Windows**: Tải `ViTai-Windows-x64.zip` → Giải nén → Chạy `ViTai.exe`.
 * 🐧 **Fedora 44 / Linux**: Tải `ViTai-v3.0.0-linux-fedora-x86_64.tar.gz` → Giải nén → Chạy `./ViTai`.
+
+> 💡 **Khuyến nghị cho người dùng macOS**:
+> Để ViTai có thể lắng nghe phím tắt toàn cục và bắt text bôi đen, hãy cấp quyền **Trợ năng (Accessibility)** và **Input Monitoring**:
+> 1. Mở **System Settings (Cài đặt hệ thống)** $\rightarrow$ **Privacy & Security (Quyền riêng tư & Bảo mật)**.
+> 2. Chọn mục **Accessibility (Trợ năng)** $\rightarrow$ Bật quyền cho `ViTai` (hoặc `Terminal` / `iTerm2` nếu chạy từ mã nguồn).
+> 3. Chọn mục **Input Monitoring (Theo dõi đầu vào)** $\rightarrow$ Bật quyền tương tự.
 
 > 💡 **Khuyến nghị cho người dùng Fedora / Linux Wayland**:
 > Để bật tính năng theo dõi vị trí chuột cấp Kernel (`evdev`), hãy thêm tài khoản vào nhóm `input`:
@@ -97,7 +105,7 @@ flowchart LR
    - Bấm chuột bất kỳ để tắt chữ đáp án.
 
 2. **Mở Menu Cài đặt ("Vì Người Tài")**:
-   - Nhấn tổ hợp phím **`Ctrl + Alt + V`**.
+   - Nhấn tổ hợp phím **`Ctrl + Alt + V`** (hoặc **`Cmd + Alt + V`** trên macOS).
    - Thẻ **"Vỏ"**: Tùy chỉnh màu chữ, kích thước chữ đáp án (xem trước trực quan), bật/tắt Fast Mode, Cache.
    - Thẻ **"Lõi"**: Lựa chọn Provider AI (Codex, 9Router, Gemini, Kiro), Model, nhập API Key hoặc đăng nhập OAuth.
 
@@ -108,6 +116,13 @@ flowchart LR
 ---
 
 ## 🔨 Build từ mã nguồn
+
+### Trên macOS (Apple Silicon / Intel)
+```bash
+chmod +x build_mac.sh
+./build_mac.sh
+# File kết quả: dist/ViTai.app và dist/ViTai-v3.0.0-macos-<arch>.tar.gz
+```
 
 ### Trên Linux (Fedora 44 / Ubuntu)
 ```bash
@@ -130,11 +145,13 @@ python scripts\build_windows.py
 ViTai/
 ├── assets/                  # Icons và tài nguyên đồ họa ứng dụng
 ├── src/vitai/
-│   ├── capture.py           # Thu thập văn bản (Wayland PRIMARY & Win32 SendInput)
+│   ├── capture.py           # Thu thập văn bản (macOS Cmd+C/osascript, Wayland PRIMARY, Win32)
 │   ├── overlay.py           # Ghost Overlay 100% trong suốt & Direct Bypass WM
-│   ├── mouse_tracker.py     # Kernel Mouse Tracker (evdev) & Direct Click Listener
+│   ├── mouse_tracker.py     # Kernel Mouse Tracker (evdev Linux) & Click Listener
 │   ├── selection_watcher.py # Daemon theo dõi bôi đen tự động cho Fast Mode
 │   ├── gnome_shortcuts.py   # Quản lý phím tắt hệ thống GNOME gsettings
+│   ├── hotkey.py            # Quản lý phím tắt toàn cục (pynput + Win32 fallback)
+│   ├── startup.py           # Quản lý tự khởi động (macOS LaunchAgent, Linux desktop, Windows registry)
 │   ├── ipc.py               # Unix Domain Socket IPC điều khiển kích hoạt nội bộ
 │   ├── oauth_provider.py    # Luồng xác thực OAuth (Codex, Gemini, Kiro)
 │   ├── token_store.py       # Quản lý và lưu trữ token an toàn
@@ -145,8 +162,10 @@ ViTai/
 │   ├── settings.py          # Cửa sổ Cài đặt "Vì Người Tài" (State-Aware)
 │   └── main.py              # Điều phối chính của toàn bộ ứng dụng
 ├── tests/                   # Bộ kiểm thử đơn vị tự động (Unit Tests)
-├── run.sh                   # Script khởi chạy môi trường Linux
+├── run.sh                   # Script khởi chạy môi trường đa nền tảng (macOS / Linux)
+├── build_mac.sh             # Script đóng gói binary & .app bundle cho macOS
 ├── build_linux.sh           # Script đóng gói binary Linux
+├── ViTai.spec               # Cấu hình PyInstaller đa nền tảng
 └── requirements.txt         # Thư viện phụ thuộc
 ```
 

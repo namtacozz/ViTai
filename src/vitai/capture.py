@@ -135,15 +135,100 @@ def _simulate_ctrl_c_pynput() -> bool:
         kb.release(Key.alt)
         kb.release(Key.alt_l)
         kb.release(Key.alt_r)
+        if sys.platform == "darwin":
+            kb.release(Key.cmd)
+            kb.release(Key.cmd_l)
+            kb.release(Key.cmd_r)
         time.sleep(0.03)
         cmd_key = Key.cmd if sys.platform == "darwin" else Key.ctrl
         with kb.pressed(cmd_key):
             kb.tap('c')
-        _log.info("[CAPTURE] pynput Ctrl+C đã gửi.")
+        _log.info("[CAPTURE] pynput Ctrl+C/Cmd+C đã gửi.")
         return True
     except Exception as e:
-        _log.warning(f"[CAPTURE] pynput Ctrl+C lỗi: {e}")
+        _log.warning(f"[CAPTURE] pynput Ctrl+C/Cmd+C lỗi: {e}")
         return False
+
+
+def _simulate_cmd_c_macos_applescript() -> bool:
+    """Giả lập Cmd+C trên macOS bằng AppleScript (System Events)."""
+    try:
+        res = subprocess.run(
+            ["osascript", "-e", 'tell application "System Events" to keystroke "c" using command down'],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        ok = res.returncode == 0
+        _log.info(f"[CAPTURE] macOS osascript Cmd+C: ok={ok}")
+        return ok
+    except Exception as e:
+        _log.warning(f"[CAPTURE] macOS osascript Cmd+C lỗi: {e}")
+        return False
+
+
+def _read_clipboard_macos() -> str | None:
+    """Đọc clipboard trên macOS (hỗ trợ pbpaste và pyperclip)."""
+    try:
+        import pyperclip
+        text = pyperclip.paste()
+        if text and text.strip():
+            return text.strip()
+    except Exception:
+        pass
+
+    try:
+        res = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _get_selected_text_macos() -> str | None:
+    """Bắt text bôi đen trên macOS bằng Cmd+C (pynput + fallback osascript)."""
+    _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen qua Cmd+C...")
+    try:
+        import pyperclip
+        original_clip = ""
+        try:
+            original_clip = pyperclip.paste()
+        except Exception:
+            pass
+
+        try:
+            pyperclip.copy("")
+        except Exception:
+            pass
+
+        # 1. Thử gửi Cmd+C qua pynput
+        success = _simulate_ctrl_c_pynput()
+        time.sleep(0.12)
+        selected = _read_clipboard_macos()
+
+        # 2. Nếu chưa đọc được, thử fallback qua osascript AppleScript
+        if not selected:
+            _log.info("[CAPTURE] pynput chưa bắt được text trên macOS, thử fallback AppleScript...")
+            if _simulate_cmd_c_macos_applescript():
+                time.sleep(0.12)
+                selected = _read_clipboard_macos()
+
+        if selected:
+            _log.info(f"[CAPTURE] ✅ macOS thành công: '{selected[:80]}'")
+            return selected
+
+        # Khôi phục lại clipboard cũ nếu không lấy được text mới
+        if original_clip:
+            try:
+                pyperclip.copy(original_clip)
+            except Exception:
+                pass
+    except Exception as e:
+        _log.error(f"[CAPTURE] macOS lỗi: {e}")
+
+    _log.warning("[CAPTURE] ❌ Không thể đọc text bôi đen trên macOS.")
+    return None
 
 
 def get_selected_text(delay: float = 0.05) -> str | None:
@@ -151,8 +236,9 @@ def get_selected_text(delay: float = 0.05) -> str | None:
     
     Chiến lược:
     1. Linux Wayland: Đọc PRIMARY selection trực tiếp (không cần Ctrl+C)
-    2. Linux X11: Đọc PRIMARY selection, hoặc giả lập Ctrl+C
+    2. macOS: Giả lập Cmd+C bằng pynput / osascript và đọc clipboard (pbpaste / pyperclip)
     3. Windows: Giả lập Ctrl+C bằng Win32 API
+    4. Linux X11: Đọc PRIMARY selection, hoặc giả lập Ctrl+C
     """
     _log.info(f"[CAPTURE] === Bắt đầu get_selected_text === (wayland={_is_wayland()}, platform={sys.platform})")
 
@@ -181,6 +267,10 @@ def get_selected_text(delay: float = 0.05) -> str | None:
         _log.warning("[CAPTURE] ❌ Không thể đọc text bôi đen trên Wayland.")
         return None
 
+    # --- MACOS ---
+    if sys.platform == "darwin":
+        return _get_selected_text_macos()
+
     # --- WINDOWS ---
     if sys.platform == "win32":
         _log.info("[CAPTURE] Windows: Giả lập Ctrl+C bằng Win32 API...")
@@ -200,8 +290,8 @@ def get_selected_text(delay: float = 0.05) -> str | None:
             _log.error(f"[CAPTURE] Windows lỗi: {e}")
         return None
 
-    # --- LINUX X11 / macOS ---
-    _log.info("[CAPTURE] X11/macOS: Đọc PRIMARY selection...")
+    # --- LINUX X11 ---
+    _log.info("[CAPTURE] X11: Đọc PRIMARY selection...")
     text = _read_primary_selection_x11()
     if text:
         return text
@@ -220,5 +310,6 @@ def get_selected_text(delay: float = 0.05) -> str | None:
         except Exception:
             pass
 
-    _log.warning("[CAPTURE] ❌ Không thể đọc text trên X11/macOS.")
+    _log.warning("[CAPTURE] ❌ Không thể đọc text trên X11.")
     return None
+

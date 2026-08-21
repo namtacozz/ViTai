@@ -13,6 +13,7 @@ from vitai.config import AppConfig
 
 
 import re
+import sys
 
 def _clean_color(color_val: str | None) -> str:
     if not color_val:
@@ -30,17 +31,21 @@ class AnswerOverlay(QWidget):
         self._anchor = QPoint(0, 0)
 
         # Cửa sổ hoàn toàn trong suốt, không viền, luôn nổi trên cùng mọi ứng dụng (Ghost Overlay)
-        # Sử dụng Tool | BypassWindowManagerHint | WindowStaysOnTopHint | WindowTransparentForInput
-        # để đảm bảo hiển thị nổi lập tức trên toàn màn hình và không bao giờ xuất hiện trong Alt+Tab
-        self.setWindowFlags(
+        # Sử dụng Tool | WindowStaysOnTopHint | WindowTransparentForInput
+        # để đảm bảo hiển thị nổi lập tức trên toàn màn hình và không bao giờ xuất hiện trong Alt+Tab / Cmd+Tab
+        flags = (
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
             | Qt.WindowType.Tool
-            | Qt.WindowType.BypassWindowManagerHint
-            | Qt.WindowType.X11BypassWindowManagerHint
             | Qt.WindowType.WindowTransparentForInput
         )
+        if sys.platform != "darwin":
+            flags |= Qt.WindowType.BypassWindowManagerHint
+        if sys.platform.startswith("linux"):
+            flags |= Qt.WindowType.X11BypassWindowManagerHint
+
+        self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)

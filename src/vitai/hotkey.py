@@ -7,9 +7,58 @@ import sys
 import threading
 import time
 
-from pynput import keyboard
+from pynput import keyboard, mouse
 
 _LOGGER = logging.getLogger("vitai.hotkey")
+
+
+def _normalize_modifier(mod: str) -> str:
+    m = mod.strip().lower()
+    if m in ("cmd", "command", "super", "win", "meta"):
+        return "cmd"
+    if m in ("alt", "opt", "option"):
+        return "alt"
+    if m in ("ctrl", "control"):
+        return "ctrl"
+    if m in ("shift",):
+        return "shift"
+    if m in ("none", ""):
+        return ""
+    return m
+
+
+def _canonical_mouse_button(button: mouse.Button) -> str:
+    if button == mouse.Button.right:
+        return "mouse_right"
+    if button == mouse.Button.middle:
+        return "mouse_middle"
+    if button == mouse.Button.left:
+        return "mouse_left"
+    if button == getattr(mouse.Button, "x1", None):
+        return "mouse_x1"
+    if button == getattr(mouse.Button, "x2", None):
+        return "mouse_x2"
+    btn_str = str(button).lower()
+    if "x1" in btn_str or "back" in btn_str or "button8" in btn_str:
+        return "mouse_x1"
+    if "x2" in btn_str or "forward" in btn_str or "button9" in btn_str:
+        return "mouse_x2"
+    return "mouse_extra"
+
+
+def format_key_display(key_str: str) -> str:
+    k = key_str.strip().lower()
+    if k == "mouse_right":
+        return "Chuột Phải"
+    if k == "mouse_middle":
+        return "Chuột Giữa"
+    if k == "mouse_left":
+        return "Chuột Trái"
+    if k in ("mouse_x1", "mouse_side"):
+        return "Nút Chuột Phụ 1 (Back)"
+    if k in ("mouse_x2", "mouse_extra"):
+        return "Nút Chuột Phụ 2 (Forward)"
+    return k.upper()
 
 
 class _PynputHotkeyBackend:
@@ -19,20 +68,36 @@ class _PynputHotkeyBackend:
         self._callback = callback
         self._pressed_keys: set[str] = set()
         self._last_trigger_time = 0.0
-        self._listener: keyboard.Listener | None = None
+        self._kb_listener: keyboard.Listener | None = None
+        self._mouse_listener: mouse.Listener | None = None
 
     def start(self) -> None:
         _LOGGER.info(f"[HOTKEY] Pynput listener khởi động: lắng nghe {self._modifier_str}+{self._target_key_str}")
-        self._listener = keyboard.Listener(
+        self._kb_listener = keyboard.Listener(
             on_press=self._on_press,
             on_release=self._on_release,
         )
-        self._listener.start()
+        self._kb_listener.start()
+
+        # Nếu target_key là phím chuột, kích hoạt thêm mouse listener để bắt trigger
+        if self._is_mouse_trigger():
+            self._mouse_listener = mouse.Listener(
+                on_click=self._on_mouse_click,
+            )
+            self._mouse_listener.start()
 
     def stop(self) -> None:
-        if self._listener is not None:
-            self._listener.stop()
-            self._listener = None
+        if self._kb_listener is not None:
+            self._kb_listener.stop()
+            self._kb_listener = None
+        if self._mouse_listener is not None:
+            self._mouse_listener.stop()
+            self._mouse_listener = None
+
+    def _is_mouse_trigger(self) -> bool:
+        return self._target_key_str.startswith("mouse_") or self._target_key_str in (
+            "right", "middle", "left", "x1", "x2", "side", "extra"
+        )
 
     def _canonical(self, key) -> str:
         if isinstance(key, keyboard.KeyCode):
@@ -48,27 +113,62 @@ class _PynputHotkeyBackend:
             return "ctrl"
         if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
             return "shift"
+        if hasattr(keyboard.Key, 'cmd') and key in (
+            getattr(keyboard.Key, 'cmd', None),
+            getattr(keyboard.Key, 'cmd_l', None),
+            getattr(keyboard.Key, 'cmd_r', None),
+        ):
+            return "cmd"
         return str(key).lower()
 
     def _on_press(self, key) -> None:
         name = self._canonical(key)
         self._pressed_keys.add(name)
 
-        if self._check_match():
+        if not self._is_mouse_trigger() and self._check_match():
             now = time.time()
             if now - self._last_trigger_time > 0.4:
                 self._last_trigger_time = now
-                _LOGGER.info(f"[HOTKEY] ✅ Phát hiện phím tắt: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
+                _LOGGER.info(f"[HOTKEY] ✅ Phát hiện phím tắt bàn phím: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
                 self._callback()
 
     def _on_release(self, key) -> None:
         name = self._canonical(key)
         self._pressed_keys.discard(name)
 
-    def _check_match(self) -> bool:
-        mods = [m.strip().lower() for m in self._modifier_str.split("+")]
+    def _on_mouse_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
+        if not pressed:
+            return
+        btn_name = _canonical_mouse_button(button)
+        matches_btn = (
+            btn_name == self._target_key_str
+            or (btn_name == "mouse_x1" and self._target_key_str in ("mouse_x1", "mouse_side", "x1"))
+            or (btn_name == "mouse_x2" and self._target_key_str in ("mouse_x2", "mouse_extra", "x2"))
+            or (btn_name == "mouse_right" and self._target_key_str == "right")
+            or (btn_name == "mouse_middle" and self._target_key_str == "middle")
+            or (btn_name == "mouse_left" and self._target_key_str == "left")
+        )
+
+        if matches_btn and self._check_modifiers_only():
+            now = time.time()
+            if now - self._last_trigger_time > 0.4:
+                self._last_trigger_time = now
+                _LOGGER.info(f"[HOTKEY] 🖱️ Phát hiện phím chuột kích hoạt: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
+                self._callback()
+
+    def _check_modifiers_only(self) -> bool:
+        if not self._modifier_str or self._modifier_str in ("none", ""):
+            return True
+        mods = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
         for m in mods:
-            if m not in self._pressed_keys:
+            if m and m not in self._pressed_keys:
+                return False
+        return True
+
+    def _check_match(self) -> bool:
+        mods = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
+        for m in mods:
+            if m and m not in self._pressed_keys:
                 return False
         return self._target_key_str in self._pressed_keys
 
@@ -166,12 +266,31 @@ class HotkeyManager:
 
     @property
     def display_text(self) -> str:
-        parts = self._modifier.split("+")
-        return "+".join(p.strip().capitalize() for p in parts) + f"+{self._key.upper()}"
+        parts = self._modifier.split("+") if self._modifier and self._modifier != "none" else []
+        formatted = []
+        for p in parts:
+            p_norm = _normalize_modifier(p)
+            if p_norm == "cmd":
+                formatted.append("Cmd" if sys.platform == "darwin" else "Win")
+            elif p_norm == "alt":
+                formatted.append("Opt" if sys.platform == "darwin" else "Alt")
+            elif p_norm == "ctrl":
+                formatted.append("Ctrl")
+            elif p_norm == "shift":
+                formatted.append("Shift")
+            elif p.strip():
+                formatted.append(p.strip().capitalize())
+
+        key_disp = format_key_display(self._key)
+        if formatted:
+            return "+".join(formatted) + f"+{key_disp}"
+        return key_disp
 
     def _create_backend(self):
-        if self._backend_id == "pynput":
+        # Nếu target_key là phím chuột, bắt buộc dùng pynput
+        if self._key.startswith("mouse_") or self._backend_id == "pynput":
             return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
+
         if self._backend_id in {"auto", "win32"}:
             try:
                 return _Win32HotkeyBackend(self._modifier, self._key, self._callback)
