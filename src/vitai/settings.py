@@ -2648,8 +2648,11 @@ class SettingsWindow(QDialog):
             self.acc_username_lbl.setText(f"Tài khoản: {self.current_user.username}")
             role_title = "👑 Quản Trị Viên (Admin)" if self.is_admin else "👤 Người Dùng (User)"
             self.acc_role_lbl.setText(f"Vai trò: {role_title}")
-            bound_str = self.current_user.bound_mac if self.current_user.bound_mac else "Chưa liên kết"
-            self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (Đã khóa: {bound_str})")
+            if self.is_admin:
+                self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (👑 Tài khoản Admin - Tự do mọi thiết bị)")
+            else:
+                bound_str = self.current_user.bound_mac if self.current_user.bound_mac else "Chưa liên kết"
+                self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (Đã khóa: {bound_str})")
             if hasattr(self, "login_gate_overlay"):
                 self.login_gate_overlay.hide()
         else:
@@ -2738,8 +2741,14 @@ class SettingsWindow(QDialog):
             self.admin_user_table.setItem(row, 0, QTableWidgetItem(u.username))
             role_str = "👑 Admin" if u.role == "admin" else "👤 User"
             self.admin_user_table.setItem(row, 1, QTableWidgetItem(role_str))
-            mac_str = u.bound_mac if u.bound_mac else "● Chưa kích hoạt"
+            if u.role == "admin":
+                mac_str = "👑 Tự do mọi máy"
+            else:
+                mac_str = u.bound_mac if u.bound_mac else "● Chưa kích hoạt"
             self.admin_user_table.setItem(row, 2, QTableWidgetItem(mac_str))
+            st_str = "✓ Hoạt động" if u.is_active else "🔒 Đã khóa"
+            self.admin_user_table.setItem(row, 3, QTableWidgetItem(st_str))
+            self.admin_user_table.setItem(row, 4, QTableWidgetItem(u.created_at[:19] if u.created_at else "--"))
             st_str = "✓ Hoạt động" if u.is_active else "🔒 Đã khóa"
             self.admin_user_table.setItem(row, 3, QTableWidgetItem(st_str))
             self.admin_user_table.setItem(row, 4, QTableWidgetItem(u.created_at[:19] if u.created_at else "--"))

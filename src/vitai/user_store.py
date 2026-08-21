@@ -367,7 +367,11 @@ class UserStore:
 
         current_mac = client_mac or get_mac_address()
 
-        # 2. Nếu là tài khoản chưa từng liên kết MAC (Lần đầu đăng nhập)
+        # 2. Nếu là Admin: Không bao giờ gán cố định MAC hay chặn MAC, cho phép đăng nhập tự do từ mọi máy
+        if user.role == "admin":
+            return True, user, "Đăng nhập Quản Trị Viên thành công! (Không giới hạn thiết bị)"
+
+        # 3. Với User thường: Nếu là tài khoản chưa từng liên kết MAC (Lần đầu đăng nhập)
         if not user.bound_mac:
             user.bound_mac = current_mac
             self._save()
@@ -376,11 +380,8 @@ class UserStore:
                 self.cloud_client.update_fields(u_key, {"bound_mac": current_mac})
             return True, user, f"Đăng nhập thành công! Đã liên kết cố định thiết bị ({current_mac})."
 
-        # 3. Nếu đã có MAC liên kết trước đó
+        # 4. Với User thường: Nếu đã có MAC liên kết trước đó
         if user.bound_mac != current_mac:
-            # Nếu là Admin, cho phép đăng nhập quản trị từ mọi máy
-            if user.role == "admin":
-                return True, user, "Đăng nhập Quản Trị Viên thành công!"
             return (
                 False,
                 None,

@@ -123,6 +123,20 @@ class TestUserStoreAndHardwareLock:
         assert ok_new is True
         assert u_new.bound_mac == new_mac
 
+    def test_admin_unrestricted_mac_access(self, temp_store):
+        # Admin can login from machine 1
+        mac1 = "11:22:33:44:55:66"
+        ok1, admin1, _ = temp_store.authenticate("vinguoitai", "vit24052005", mac1)
+        assert ok1 is True
+        assert admin1.role == "admin"
+        assert admin1.bound_mac is None  # Admin MAC is never permanently locked
+
+        # Admin can also login from machine 2, 3 without being rejected
+        mac2 = "AA:BB:CC:DD:EE:FF"
+        ok2, admin2, _ = temp_store.authenticate("vinguoitai", "vit24052005", mac2)
+        assert ok2 is True
+        assert admin2.role == "admin"
+
     def test_session_lifecycle(self, tmp_path, temp_store):
         session_file = tmp_path / "session.json"
         temp_store.create_user("david", "passDavid", role="user")
