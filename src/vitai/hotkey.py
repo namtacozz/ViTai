@@ -7,7 +7,11 @@ import sys
 import threading
 import time
 
-from pynput import keyboard, mouse
+try:
+    from pynput import keyboard, mouse
+except Exception:
+    keyboard = None  # type: ignore
+    mouse = None  # type: ignore
 
 _LOGGER = logging.getLogger("vitai.hotkey")
 
@@ -27,18 +31,25 @@ def _normalize_modifier(mod: str) -> str:
     return m
 
 
-def _canonical_mouse_button(button: mouse.Button) -> str:
-    if button == mouse.Button.right:
-        return "mouse_right"
-    if button == mouse.Button.middle:
-        return "mouse_middle"
-    if button == mouse.Button.left:
-        return "mouse_left"
-    if button == getattr(mouse.Button, "x1", None):
-        return "mouse_x1"
-    if button == getattr(mouse.Button, "x2", None):
-        return "mouse_x2"
+def _canonical_mouse_button(button) -> str:
+    if mouse is not None:
+        if button == mouse.Button.right:
+            return "mouse_right"
+        if button == mouse.Button.middle:
+            return "mouse_middle"
+        if button == mouse.Button.left:
+            return "mouse_left"
+        if button == getattr(mouse.Button, "x1", None):
+            return "mouse_x1"
+        if button == getattr(mouse.Button, "x2", None):
+            return "mouse_x2"
     btn_str = str(button).lower()
+    if "right" in btn_str:
+        return "mouse_right"
+    if "middle" in btn_str:
+        return "mouse_middle"
+    if "left" in btn_str:
+        return "mouse_left"
     if "x1" in btn_str or "back" in btn_str or "button8" in btn_str:
         return "mouse_x1"
     if "x2" in btn_str or "forward" in btn_str or "button9" in btn_str:
@@ -100,26 +111,36 @@ class _PynputHotkeyBackend:
         )
 
     def _canonical(self, key) -> str:
-        if isinstance(key, keyboard.KeyCode):
-            if key.char:
-                return key.char.lower()
-            if hasattr(key, 'vk') and key.vk:
-                if 65 <= key.vk <= 90:
-                    return chr(key.vk).lower()
-            return str(key).lower()
-        if key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
+        if keyboard is not None:
+            if isinstance(key, keyboard.KeyCode):
+                if key.char:
+                    return key.char.lower()
+                if hasattr(key, 'vk') and key.vk:
+                    if 65 <= key.vk <= 90:
+                        return chr(key.vk).lower()
+                return str(key).lower()
+            if key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
+                return "alt"
+            if key in (keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+                return "ctrl"
+            if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+                return "shift"
+            if hasattr(keyboard.Key, 'cmd') and key in (
+                getattr(keyboard.Key, 'cmd', None),
+                getattr(keyboard.Key, 'cmd_l', None),
+                getattr(keyboard.Key, 'cmd_r', None),
+            ):
+                return "cmd"
+        k_str = str(key).lower()
+        if "alt" in k_str:
             return "alt"
-        if key in (keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+        if "ctrl" in k_str:
             return "ctrl"
-        if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+        if "shift" in k_str:
             return "shift"
-        if hasattr(keyboard.Key, 'cmd') and key in (
-            getattr(keyboard.Key, 'cmd', None),
-            getattr(keyboard.Key, 'cmd_l', None),
-            getattr(keyboard.Key, 'cmd_r', None),
-        ):
+        if "cmd" in k_str:
             return "cmd"
-        return str(key).lower()
+        return k_str
 
     def _on_press(self, key) -> None:
         name = self._canonical(key)

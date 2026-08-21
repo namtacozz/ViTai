@@ -26,7 +26,18 @@ from vitai.user_store import (
     save_session,
     verify_password,
 )
-from pynput import mouse
+try:
+    from pynput import mouse
+except Exception:
+    class _DummyMouseButton:
+        right = "right"
+        middle = "middle"
+        left = "left"
+        x1 = "x1"
+        x2 = "x2"
+    class _DummyMouse:
+        Button = _DummyMouseButton()
+    mouse = _DummyMouse()  # type: ignore
 
 
 class TestPasswordAndMacSecurity:

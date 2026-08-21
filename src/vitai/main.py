@@ -9,7 +9,10 @@ import traceback
 from dataclasses import replace
 from pathlib import Path
 
-from pynput import mouse
+try:
+    from pynput import mouse
+except Exception:
+    mouse = None  # type: ignore
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QAction, QCursor, QIcon
 from PyQt6.QtWidgets import QApplication, QInputDialog
@@ -454,8 +457,9 @@ class ViTaiApp:
     def run(self) -> int:
         self.hotkey_manager.start()
         self.menu_hotkey_manager.start()
-        self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
-        self.mouse_listener.start()
+        if mouse is not None:
+            self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
+            self.mouse_listener.start()
         return self.qt_app.exec()
 
     def quit(self) -> None:

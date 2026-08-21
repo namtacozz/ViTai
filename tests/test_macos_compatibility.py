@@ -5,7 +5,21 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from pynput import keyboard
+try:
+    from pynput import keyboard
+except Exception:
+    class _DummyKey:
+        alt = "alt"
+        ctrl = "ctrl"
+        shift = "shift"
+        cmd = "cmd"
+        cmd_l = "cmd_l"
+        cmd_r = "cmd_r"
+    class _DummyKeyboard:
+        Key = _DummyKey()
+        KeyCode = object
+    keyboard = _DummyKeyboard()  # type: ignore
+
 import pytest
 
 from vitai.hotkey import HotkeyManager, _PynputHotkeyBackend, _normalize_modifier
