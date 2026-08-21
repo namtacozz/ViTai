@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QCloseEvent, QIcon, QKeyEvent, QMouseEvent, QPixmap, QTextCursor
+from PyQt6.QtGui import QCloseEvent, QIcon, QKeyEvent, QMouseEvent, QPixmap, QResizeEvent, QTextCursor
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -171,9 +171,14 @@ def get_stylesheet(theme: str = "dark") -> str:
             font-weight: 800;
         }
 
-        QLabel#headerDesc {
-            color: #64748B;
-            font-size: 13px;
+        /* Login Gate Overlay */
+        QFrame#loginGateOverlay {
+            background-color: rgba(241, 245, 249, 0.96);
+        }
+        QFrame#loginCard {
+            background-color: #FFFFFF;
+            border: 1.5px solid rgba(224, 159, 94, 0.45);
+            border-radius: 16px;
         }
 
         QLabel {
@@ -593,6 +598,16 @@ def get_stylesheet(theme: str = "dark") -> str:
     QLabel#headerDesc {
         color: #94A3B8;
         font-size: 13px;
+    }
+
+    /* Login Gate Overlay */
+    QFrame#loginGateOverlay {
+        background-color: rgba(12, 13, 14, 0.95);
+    }
+    QFrame#loginCard {
+        background-color: #141619;
+        border: 1.5px solid rgba(224, 159, 94, 0.4);
+        border-radius: 16px;
     }
 
     QLabel {
@@ -2448,6 +2463,101 @@ class SettingsWindow(QDialog):
         self.color_combo.currentIndexChanged.connect(lambda *_: self._mark_dirty())
         self.color_combo.currentTextChanged.connect(lambda *_: self._mark_dirty())
 
+        # ==========================================
+        # 3. FULL-SCREEN LOGIN GATE OVERLAY (Frosted Glass Barrier)
+        # ==========================================
+        self.login_gate_overlay = QFrame(self)
+        self.login_gate_overlay.setObjectName("loginGateOverlay")
+        gate_layout = QVBoxLayout(self.login_gate_overlay)
+        gate_layout.setContentsMargins(40, 24, 40, 24)
+        gate_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Centered Login Card
+        login_card = QFrame()
+        login_card.setObjectName("loginCard")
+        login_card.setFixedSize(450, 420)
+        card_layout = QVBoxLayout(login_card)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(12)
+
+        # Header Icon & Title
+        title_box = QLabel("🛡️ ĐĂNG NHẬP HỆ THỐNG ViTai")
+        title_box.setStyleSheet("font-size: 17px; font-weight: 900; color: #E09F5E;")
+        title_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_layout.addWidget(title_box)
+
+        sub_box = QLabel("Vui lòng xác thực tài khoản để mở khóa và sử dụng ứng dụng")
+        sub_box.setStyleSheet("font-size: 12px; color: #94A3B8;")
+        sub_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sub_box.setWordWrap(True)
+        card_layout.addWidget(sub_box)
+
+        card_layout.addSpacing(4)
+
+        # Hardware MAC Lock Badge
+        self.gate_mac_lbl = QLabel(f"💻 Khóa Thiết Bị (MAC): {get_mac_address()}")
+        self.gate_mac_lbl.setStyleSheet(
+            "font-size: 11px; font-weight: 700; color: #E09F5E; "
+            "background-color: rgba(224, 159, 94, 0.12); padding: 5px 8px; border-radius: 6px;"
+        )
+        self.gate_mac_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_layout.addWidget(self.gate_mac_lbl)
+
+        # Cloud Sync Badge
+        self.gate_cloud_lbl = QLabel("🟢 Supabase Cloud: Đang kết nối Online")
+        self.gate_cloud_lbl.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #4ADE80; "
+            "background-color: rgba(74, 222, 128, 0.12); padding: 5px 8px; border-radius: 6px;"
+        )
+        self.gate_cloud_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_layout.addWidget(self.gate_cloud_lbl)
+
+        card_layout.addSpacing(4)
+
+        # Input fields
+        self.gate_user_input = QLineEdit()
+        self.gate_user_input.setPlaceholderText("Tên đăng nhập...")
+        card_layout.addWidget(self.gate_user_input)
+
+        self.gate_pass_input = QLineEdit()
+        self.gate_pass_input.setPlaceholderText("Mật khẩu...")
+        self.gate_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.gate_pass_input.returnPressed.connect(self._on_gate_login)
+        card_layout.addWidget(self.gate_pass_input)
+
+        # Error label
+        self.gate_err_lbl = QLabel("")
+        self.gate_err_lbl.setStyleSheet("color: #EF4444; font-size: 11px; font-weight: 600;")
+        self.gate_err_lbl.setWordWrap(True)
+        self.gate_err_lbl.setVisible(False)
+        card_layout.addWidget(self.gate_err_lbl)
+
+        card_layout.addStretch()
+
+        # Action Buttons
+        btn_gate_row = QHBoxLayout()
+        btn_gate_row.setSpacing(10)
+
+        self.gate_exit_btn = QPushButton("Thoát")
+        self.gate_exit_btn.setObjectName("exitButton")
+        self.gate_exit_btn.clicked.connect(self._on_gate_exit)
+        btn_gate_row.addWidget(self.gate_exit_btn)
+
+        self.gate_login_btn = QPushButton("Đăng Nhập Ngay")
+        self.gate_login_btn.setObjectName("saveButton")
+        self.gate_login_btn.clicked.connect(self._on_gate_login)
+        btn_gate_row.addWidget(self.gate_login_btn)
+
+        card_layout.addLayout(btn_gate_row)
+        gate_layout.addWidget(login_card)
+
+        self.login_gate_overlay.setGeometry(self.rect())
+        if self.current_user is None:
+            self.login_gate_overlay.show()
+            self.login_gate_overlay.raise_()
+        else:
+            self.login_gate_overlay.hide()
+
     def _show_mouse_menu(self) -> None:
         menu = QMenu(self)
         presets = [
@@ -2485,6 +2595,44 @@ class SettingsWindow(QDialog):
             self._update_overlay_preview()
             self._mark_dirty()
 
+    def _on_gate_login(self) -> None:
+        user_str = self.gate_user_input.text().strip()
+        pwd_str = self.gate_pass_input.text().strip()
+
+        if not user_str or not pwd_str:
+            self.gate_err_lbl.setText("⚠️ Vui lòng nhập đầy đủ tài khoản và mật khẩu!")
+            self.gate_err_lbl.setVisible(True)
+            return
+
+        self.gate_login_btn.setText("Đang xác thực...")
+        self.gate_login_btn.setEnabled(False)
+        QApplication.processEvents()
+
+        try:
+            client_mac = get_mac_address()
+            ok, user_obj, err_msg = self.user_store.authenticate(user_str, pwd_str, client_mac)
+            if ok and user_obj:
+                self.current_user = user_obj
+                save_session(user_obj)
+                self.gate_err_lbl.setVisible(False)
+                self.gate_user_input.clear()
+                self.gate_pass_input.clear()
+                self._update_auth_ui()
+                self.login_gate_overlay.hide()
+                self.sidebar_menu.setCurrentRow(0)
+            else:
+                self.gate_err_lbl.setText(f"❌ {err_msg}")
+                self.gate_err_lbl.setVisible(True)
+                self.gate_pass_input.clear()
+                self.gate_pass_input.setFocus()
+        finally:
+            self.gate_login_btn.setText("Đăng Nhập Ngay")
+            self.gate_login_btn.setEnabled(True)
+
+    def _on_gate_exit(self) -> None:
+        self.exit_requested.emit()
+        self.close()
+
     def _update_auth_ui(self) -> None:
         self.is_admin = (self.current_user.role == "admin") if self.current_user else False
 
@@ -2502,9 +2650,16 @@ class SettingsWindow(QDialog):
             self.acc_role_lbl.setText(f"Vai trò: {role_title}")
             bound_str = self.current_user.bound_mac if self.current_user.bound_mac else "Chưa liên kết"
             self.acc_mac_lbl.setText(f"Địa chỉ MAC thiết bị này: {get_mac_address()} (Đã khóa: {bound_str})")
+            if hasattr(self, "login_gate_overlay"):
+                self.login_gate_overlay.hide()
         else:
             self.acc_username_lbl.setText("Tài khoản: Chưa đăng nhập")
             self.acc_role_lbl.setText("Vai trò: --")
+            if hasattr(self, "login_gate_overlay"):
+                self.login_gate_overlay.setGeometry(self.rect())
+                self.login_gate_overlay.show()
+                self.login_gate_overlay.raise_()
+                self.gate_user_input.setFocus()
 
         if self.is_admin:
             self._refresh_admin_user_table()
@@ -2550,13 +2705,11 @@ class SettingsWindow(QDialog):
         clear_session()
         self.current_user = None
         self.is_admin = False
-        dlg = LoginDialog(parent=self, theme=self.current_theme, store=self.user_store)
-        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.logged_in_user:
-            self.current_user = dlg.logged_in_user
-            self._update_auth_ui()
-            self.sidebar_menu.setCurrentRow(0)
-        else:
-            self.close()
+        self._update_auth_ui()
+        self.gate_user_input.clear()
+        self.gate_pass_input.clear()
+        self.gate_err_lbl.setVisible(False)
+        self.gate_user_input.setFocus()
 
     def _update_cloud_ui_status(self) -> None:
         if hasattr(self, "cloud_status_lbl"):
@@ -3008,7 +3161,28 @@ class SettingsWindow(QDialog):
         if self._maybe_confirm_close():
             self.exit_requested.emit()
 
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
+        super().resizeEvent(a0)
+        if hasattr(self, "login_gate_overlay") and self.login_gate_overlay:
+            self.login_gate_overlay.setGeometry(self.rect())
+
+    def showEvent(self, a0) -> None:
+        super().showEvent(a0)
+        if hasattr(self, "login_gate_overlay") and self.login_gate_overlay:
+            self.login_gate_overlay.setGeometry(self.rect())
+            if self.current_user is None:
+                self.login_gate_overlay.show()
+                self.login_gate_overlay.raise_()
+                self.gate_user_input.setFocus()
+            else:
+                self.login_gate_overlay.hide()
+
     def closeEvent(self, a0: QCloseEvent | None) -> None:
+        if self.current_user is None:
+            self.exit_requested.emit()
+            if a0:
+                a0.accept()
+            return
         if self._maybe_confirm_close():
             self.hide()
             if a0:
@@ -3019,6 +3193,9 @@ class SettingsWindow(QDialog):
 
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
         if a0 and a0.key() == Qt.Key.Key_Escape:
+            if self.current_user is None:
+                self._on_gate_exit()
+                return
             if self._maybe_confirm_close():
                 self.hide()
             return

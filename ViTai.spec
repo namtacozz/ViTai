@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-import sys
+
 
 a = Analysis(
     ['src/vitai/main.py'],
@@ -43,23 +43,3 @@ coll = COLLECT(
     upx_exclude=[],
     name='ViTai',
 )
-
-if sys.platform == 'darwin':
-    app = BUNDLE(
-        coll,
-        name='ViTai.app',
-        icon='assets/icon.ico',
-        bundle_identifier='com.namtaco.vitai',
-        info_plist={
-            'CFBundleName': 'ViTai',
-            'CFBundleDisplayName': 'Vì Người Tài',
-            'CFBundleIdentifier': 'com.namtaco.vitai',
-            'CFBundleVersion': '3.0.0',
-            'CFBundleShortVersionString': '3.0.0',
-            'NSPrincipalClass': 'NSApplication',
-            'NSAppleScriptEnabled': False,
-            'NSAppleEventsUsageDescription': 'ViTai cần quyền AppleEvents để bắt phím tắt và đọc văn bản bôi đen.',
-            'NSAccessibilityUsageDescription': 'ViTai cần quyền Accessibility (Trợ năng) để nhận diện phím tắt toàn cục và sự kiện chuột.',
-        },
-    )
-

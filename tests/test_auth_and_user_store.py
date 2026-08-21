@@ -279,3 +279,39 @@ class TestCloudSync:
                 # Đảm bảo lệnh update MAC được gửi lên Cloud
                 mock_update.assert_called_once_with("frank", {"bound_mac": my_mac})
 
+
+class TestLoginGateBarrier:
+    def test_settings_window_login_gate_overlay_state(self, tmp_path):
+        from PyQt6.QtWidgets import QApplication
+        from vitai.config import AppConfig
+        from vitai.settings import SettingsWindow
+        from vitai.user_store import CloudConfig, UserStore, save_session, clear_session
+
+        app = QApplication.instance() or QApplication([])
+
+        store_file = tmp_path / "users.json"
+        local_cfg = CloudConfig(is_enabled=False)
+        store = UserStore(store_path=store_file, cloud_config=local_cfg)
+
+        cfg = AppConfig()
+
+        # 1. Khi chưa đăng nhập (no session)
+        clear_session(session_path=tmp_path / "session.json")
+        with patch("vitai.settings.get_user_store", return_value=store):
+            with patch("vitai.settings.get_current_session", return_value=None):
+                win = SettingsWindow(cfg)
+                assert win.current_user is None
+                assert win.login_gate_overlay.isHidden() is False
+                assert win.login_gate_overlay.objectName() == "loginGateOverlay"
+
+                # 2. Đăng nhập thành công qua Login Gate
+                win.gate_user_input.setText("admin")
+                win.gate_pass_input.setText("admin")
+                with patch("vitai.settings.save_session") as mock_save:
+                    win._on_gate_login()
+                    assert win.current_user is not None
+                    assert win.current_user.username == "admin"
+                    assert win.login_gate_overlay.isHidden() is True
+                    mock_save.assert_called_once()
+
+

@@ -105,6 +105,9 @@ class ViTaiApp:
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_overlay_if_outside_ready.connect(self.hide_overlay_if_outside)
 
+        from vitai.user_store import get_current_session, get_user_store
+        self.user_store = get_user_store()
+
         self.overlay: AnswerOverlay | None = None
         self.settings_window: SettingsWindow | None = None
         self.worker_lock = threading.Lock()
@@ -238,11 +241,15 @@ class ViTaiApp:
         self.bridge.menu_hotkey_pressed.emit()
 
     def toggle_settings(self) -> None:
+        from vitai.user_store import get_current_session
         if self.settings_window is None:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
         
+        self.settings_window.current_user = get_current_session(self.user_store)
+        self.settings_window._update_auth_ui()
+
         if self.settings_window.isVisible():
             if hasattr(self.settings_window, "_maybe_confirm_close"):
                 if self.settings_window._maybe_confirm_close():
@@ -255,10 +262,14 @@ class ViTaiApp:
             self.settings_window.activateWindow()
 
     def show_settings(self) -> None:
+        from vitai.user_store import get_current_session
         if self.settings_window is None:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
+        
+        self.settings_window.current_user = get_current_session(self.user_store)
+        self.settings_window._update_auth_ui()
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
@@ -296,6 +307,12 @@ class ViTaiApp:
         self._start_answer_request()
 
     def _start_answer_request(self) -> None:
+        from vitai.user_store import get_current_session
+        current_user = get_current_session(self.user_store)
+        if current_user is None:
+            self.logger.warning("[MAIN] 🔒 Ứng dụng đang bị khóa. Yêu cầu đăng nhập trước khi sử dụng!")
+            self.show_settings()
+            return
         threading.Thread(target=self._process_selection, daemon=True).start()
 
     def _is_hotkey_mouse_button(self, button: mouse.Button | None) -> bool:
