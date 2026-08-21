@@ -55,8 +55,10 @@ class TestPasswordAndMacSecurity:
 class TestUserStoreAndHardwareLock:
     @pytest.fixture
     def temp_store(self, tmp_path):
+        from vitai.user_store import CloudConfig
         store_file = tmp_path / "users.json"
-        return UserStore(store_path=store_file)
+        local_cfg = CloudConfig(is_enabled=False)
+        return UserStore(store_path=store_file, cloud_config=local_cfg)
 
     def test_default_admin_created(self, temp_store):
         admin = temp_store.get_user("admin")

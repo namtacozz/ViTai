@@ -1387,6 +1387,20 @@ class ChangeUserPasswordDialog(QDialog):
         btn_row.addWidget(save_btn)
         layout.addLayout(btn_row)
 
+    def _on_submit(self) -> None:
+        pwd = self.pass_input.text().strip()
+        if not pwd:
+            self.err_lbl.setText("⚠️ Mật khẩu không được để trống!")
+            self.err_lbl.setVisible(True)
+            return
+        ok, msg = self.store.update_password(self.username, pwd)
+        if ok:
+            self.accept()
+        else:
+            self.err_lbl.setText(f"⚠️ {msg}")
+            self.err_lbl.setVisible(True)
+
+
 class CloudConfigDialog(QDialog):
     """Hộp thoại cấu hình kết nối Cloud Database (Supabase / Firebase Firestore)."""
 
