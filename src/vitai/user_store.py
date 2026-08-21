@@ -69,15 +69,23 @@ class User:
 # Cloud Database Configuration & REST Client
 # ==========================================
 
+DEFAULT_SUPABASE_URL = "https://yndwxcnedlilmsbbydvb.supabase.co"
+DEFAULT_SUPABASE_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZHd4Y25lZGxpbG1zYmJ5ZHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMDE3MjQsImV4cCI6MjEwMjg3NzcyNH0."
+    "9uTO5Vfg-eQvCIkiUcXFgH9vYsjnglicr4KbYnnl-E8"
+)
+
+
 @dataclass
 class CloudConfig:
     provider: str = "supabase"  # "supabase", "firebase", "local"
-    supabase_url: str = ""      # e.g. "https://abcdefgh.supabase.co"
-    supabase_key: str = ""      # Anon key or Service Role key
+    supabase_url: str = DEFAULT_SUPABASE_URL
+    supabase_key: str = DEFAULT_SUPABASE_KEY
     firebase_project_id: str = ""
     firebase_api_key: str = ""
     table_name: str = "vitai_users"
-    is_enabled: bool = False
+    is_enabled: bool = True
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -86,12 +94,12 @@ class CloudConfig:
     def from_dict(cls, data: dict) -> CloudConfig:
         return cls(
             provider=data.get("provider", "supabase"),
-            supabase_url=data.get("supabase_url", ""),
-            supabase_key=data.get("supabase_key", ""),
+            supabase_url=data.get("supabase_url", DEFAULT_SUPABASE_URL),
+            supabase_key=data.get("supabase_key", DEFAULT_SUPABASE_KEY),
             firebase_project_id=data.get("firebase_project_id", ""),
             firebase_api_key=data.get("firebase_api_key", ""),
             table_name=data.get("table_name", "vitai_users"),
-            is_enabled=data.get("is_enabled", False),
+            is_enabled=data.get("is_enabled", True),
         )
 
 
