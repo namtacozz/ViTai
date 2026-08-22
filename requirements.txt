@@ -9,5 +9,7 @@ rank_bm25>=0.2.2
 certifi>=2024.2.2
 python-xlib>=0.33; sys_platform == 'linux'
 evdev>=1.7.0; sys_platform == 'linux'
+pyobjc-core>=9.0; sys_platform == 'darwin'
 pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'
 pyobjc-framework-Quartz>=9.0; sys_platform == 'darwin'
+pyobjc-framework-ApplicationServices>=9.0; sys_platform == 'darwin'
