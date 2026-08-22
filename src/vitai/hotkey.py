@@ -7,34 +7,9 @@ import sys
 import threading
 import time
 
-def _ensure_darwin_compat() -> None:
-    if sys.platform != "darwin":
-        return
-    try:
-        import ApplicationServices
-        if not hasattr(ApplicationServices, "AXIsProcessTrusted"):
-            import ctypes, ctypes.util
-            lib_path = ctypes.util.find_library("ApplicationServices")
-            if lib_path:
-                lib = ctypes.cdll.LoadLibrary(lib_path)
-                ApplicationServices.AXIsProcessTrusted = getattr(lib, "AXIsProcessTrusted", lambda: True)
-            else:
-                ApplicationServices.AXIsProcessTrusted = lambda: True
-    except Exception:
-        try:
-            import types, ctypes, ctypes.util
-            as_mod = types.ModuleType("ApplicationServices")
-            lib_path = ctypes.util.find_library("ApplicationServices")
-            if lib_path:
-                lib = ctypes.cdll.LoadLibrary(lib_path)
-                as_mod.AXIsProcessTrusted = getattr(lib, "AXIsProcessTrusted", lambda: True)
-            else:
-                as_mod.AXIsProcessTrusted = lambda: True
-            sys.modules["ApplicationServices"] = as_mod
-        except Exception:
-            pass
+from vitai.darwin_compat import ensure_darwin_compat
 
-_ensure_darwin_compat()
+ensure_darwin_compat()
 
 try:
     from pynput import keyboard, mouse

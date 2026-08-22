@@ -156,3 +156,12 @@ def test_safe_urlopen_ssl_fallback():
     with patch("urllib.request.urlopen", side_effect=fake_urlopen):
         resp = safe_urlopen("https://example.com", timeout=5)
         assert resp == mock_resp
+
+
+def test_ensure_darwin_compat():
+    from vitai.darwin_compat import ensure_darwin_compat
+
+    ensure_darwin_compat(force=True)
+    assert "ApplicationServices" in sys.modules
+    assert hasattr(sys.modules["ApplicationServices"], "AXIsProcessTrusted")
+    assert sys.modules["ApplicationServices"].AXIsProcessTrusted() in (True, False, 1, 0)
