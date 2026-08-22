@@ -71,18 +71,15 @@ Bản build macOS tự động tạo gói ứng dụng chuẩn **`ViTai.app`** c
 Mở ứng dụng **Terminal** trên macOS và chạy:
 
 ```bash
-# 1. Đi vào thư mục chứa file tải về (ví dụ Downloads)
-cd ~/Downloads
+# Xóa toàn bộ cờ cách ly của Apple Gatekeeper cho ViTai.app (áp dụng cho cả thư mục Downloads hoặc thư mục giải nén)
+sudo xattr -cr ~/Downloads/ViTai*.app ~/Downloads/*/ViTai.app 2>/dev/null || sudo xattr -cr ViTai.app
 
-# 2. Xóa toàn bộ cờ cách ly của Apple Gatekeeper
-sudo xattr -cr ViTai.app
-
-# 3. Ký lại chứng chỉ nội bộ Ad-hoc
-codesign --force --deep --sign - ViTai.app
+# Ký lại chứng chỉ nội bộ Ad-hoc
+codesign --force --deep --sign - ~/Downloads/*/ViTai.app 2>/dev/null || codesign --force --deep --sign - ViTai.app
 ```
 *(Nhập mật khẩu máy Mac của bạn khi được hỏi để hoàn tất)*.
 
-> 💡 **Cách gỡ chặn nhanh không dùng Terminal**: Nhấp chuột phải (hoặc giữ phím `Control` rồi click) vào `ViTai.app` $\rightarrow$ Chọn **Open** (*Mở*) $\rightarrow$ Nhấn **Open** xác nhận.
+> 💡 **Cách gỡ chặn nhanh không cần gõ lệnh**: Trong Finder, nhấp **chuột phải** (hoặc giữ phím `Control` rồi click) vào `ViTai.app` $\rightarrow$ Chọn **Open** (*Mở*) $\rightarrow$ Nhấn **Open** xác nhận.
 
 #### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt (Bắt buộc)
 Để ViTai có thể lắng nghe phím tắt toàn cục và đọc nội dung văn bản bôi đen:
