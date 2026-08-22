@@ -71,7 +71,6 @@ Tải bản phát hành mới nhất tại mục [Releases](https://github.com/n
 * **Thẻ Lõi (Trí tuệ AI)**: 
   * Chọn nguồn AI muốn sử dụng: Google Gemini, OpenAI/ChatGPT Codex, Kiro AI, 9Router, DeepSeek...
   * Nhập API Key hoặc đăng nhập tài khoản OAuth.
-* **Thẻ Quản Trị**: Quản lý thông tin tài khoản, danh sách thành viên và đổi mật khẩu.
 
 ---
 
@@ -85,14 +84,8 @@ Tải bản phát hành mới nhất tại mục [Releases](https://github.com/n
 * Hệ thống tự động xác nhận giao dịch thành công và **mở khóa tài khoản ngay lập tức 24/7** mà không cần chờ duyệt thủ công.
 
 ### 2. Cơ chế khóa thiết bị (Bảo vệ tài khoản)
-* **Tài khoản người dùng thường**: Sẽ tự động gán và khóa cố định với địa chỉ phần cứng (MAC) của máy tính đăng nhập lần đầu tiên. Điều này giúp bảo mật và tránh chia sẻ tài khoản trái phép.
-* **Khi đổi máy tính mới**: Bạn chỉ cần liên hệ Quản trị viên (Admin) để thực hiện thao tác gỡ khóa (Reset MAC) là có thể đăng nhập trên máy tính mới bình thường.
-
-### 3. Tài khoản Quản trị viên (Admin)
-* **Tài khoản Admin gốc**: `vinguoitai` (Mật khẩu mặc định: `vit24052005`).
-* **Đặc quyền Admin**:
-  * Đăng nhập tự do trên mọi máy tính khác nhau (không bị khóa cứng thiết bị).
-  * Toàn quyền truy cập tab **Quản Trị**: Cấp phát tài khoản mới, xóa người dùng, đổi mật khẩu và mở khóa thiết bị (Reset MAC) cho học viên.
+* **Tài khoản người dùng**: Sẽ tự động gán và khóa cố định với thiết bị của bạn ở lần đăng nhập đầu tiên nhằm bảo mật thông tin và quyền lợi tài khoản.
+* **Khi đổi máy tính mới**: Vui lòng liên hệ bộ phận hỗ trợ để được gỡ liên kết thiết bị cũ (Reset MAC) và đăng nhập trên máy tính mới.
 
 ---
 
