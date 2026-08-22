@@ -157,7 +157,8 @@ class CloudAuthClient:
 
         req = urllib.request.Request(url, data=body_bytes, headers=req_headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            from vitai.http_util import safe_urlopen
+            with safe_urlopen(req, timeout=timeout) as resp:
                 status = resp.status
                 resp_text = resp.read().decode("utf-8")
                 parsed = json.loads(resp_text) if resp_text else None

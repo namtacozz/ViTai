@@ -134,3 +134,25 @@ def test_get_selected_text_dispatches_darwin():
         
         result = get_selected_text()
         assert result == "Apple Silicon Captured Text"
+
+
+def test_safe_urlopen_ssl_fallback():
+    import ssl
+    import urllib.error
+    from vitai.http_util import safe_urlopen, get_safe_ssl_context
+
+    ctx = get_safe_ssl_context()
+    assert ctx is not None
+
+    # Test fallback khi gặp lỗi SSL CERTIFICATE_VERIFY_FAILED
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+
+    def fake_urlopen(req, timeout=10, context=None):
+        if context and not getattr(context, "check_hostname", True) is False:
+            raise urllib.error.URLError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        resp = safe_urlopen("https://example.com", timeout=5)
+        assert resp == mock_resp

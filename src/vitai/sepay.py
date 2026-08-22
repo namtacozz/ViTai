@@ -69,7 +69,8 @@ def check_sepay_payment(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        from vitai.http_util import safe_urlopen
+        with safe_urlopen(req, timeout=timeout) as resp:
             if resp.status != 200:
                 return False, f"SePay API trả về mã lỗi HTTP {resp.status}", None
             

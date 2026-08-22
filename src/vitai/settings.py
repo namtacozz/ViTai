@@ -2208,7 +2208,7 @@ class SettingsWindow(QDialog):
         brand_text_layout.setSpacing(1)
         brand_title = QLabel("ViTai")
         brand_title.setObjectName("brandTitle")
-        brand_ver = QLabel("v3.0.1 • AI")
+        brand_ver = QLabel("v3.1.1 • AI")
         brand_ver.setObjectName("brandVer")
         brand_text_layout.addWidget(brand_title)
         brand_text_layout.addWidget(brand_ver)

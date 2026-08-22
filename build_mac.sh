@@ -22,11 +22,12 @@ if [ -d "dist/ViTai.app" ]; then
     cp .env.example dist/ViTai.app/Contents/Resources/.env 2>/dev/null || true
 fi
 
-echo "📦 Tạo file nén Release..."
+VERSION="${GITHUB_REF_NAME:-${VERSION:-v3.1.1}}"
+echo "📦 Tạo file nén Release ($VERSION)..."
 cd dist
-tar -czvf "ViTai-v3.0.1-macos-${ARCH}.tar.gz" ViTai* 2>/dev/null || tar -czvf "ViTai-v3.0.1-macos-${ARCH}.tar.gz" ViTai
+tar -czvf "ViTai-${VERSION}-macos-${ARCH}.tar.gz" ViTai* 2>/dev/null || tar -czvf "ViTai-${VERSION}-macos-${ARCH}.tar.gz" ViTai
 cd ..
 
 echo "✅ Build hoàn tất!"
 echo "📍 Ứng dụng:     dist/ViTai.app hoặc dist/ViTai/ViTai"
-echo "🎁 File Release: dist/ViTai-v3.0.1-macos-${ARCH}.tar.gz"
+echo "🎁 File Release: dist/ViTai-${VERSION}-macos-${ARCH}.tar.gz"

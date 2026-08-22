@@ -1,9 +1,9 @@
 <div align="center">
 
-# 👻 ViTai v3.0.1 — Vì Người Tài
+# 👻 ViTai v3.1.1 — Vì Người Tài
 ### *Siêu trợ lý AI bôi đen cực nhanh — Ẩn mình tuyệt đối — Tối ưu cho macOS, Linux (Fedora/Ubuntu Wayland & X11) & Windows*
 
-[![Version](https://img.shields.io/badge/Version-v3.0.1-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
+[![Version](https://img.shields.io/badge/Version-v3.1.1-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?style=for-the-badge&logo=qt&logoColor=white)](https://www.qt.io/)
 [![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%2F%20Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
@@ -120,7 +120,7 @@ flowchart LR
 ```bash
 chmod +x build_linux.sh
 ./build_linux.sh
-# File kết quả: dist/ViTai/ViTai và dist/ViTai-v3.0.1-linux-x86_64.tar.gz
+# File kết quả: dist/ViTai/ViTai và dist/ViTai-v3.1.1-linux-x86_64.tar.gz
 ```
 
 ### Build trên Windows
