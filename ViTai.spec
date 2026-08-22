@@ -3,6 +3,8 @@
 import sys
 import os
 
+icon_path = 'assets/icon.ico' if os.path.exists('assets/icon.ico') else None
+
 a = Analysis(
     ['src/vitai/main.py'],
     pathex=['src'],
@@ -24,8 +26,6 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-exe_icon = ['assets/icon.ico'] if sys.platform == 'win32' else None
-
 exe = EXE(
     pyz,
     a.scripts,
@@ -42,7 +42,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=exe_icon,
+    icon=icon_path,
 )
 
 coll = COLLECT(
