@@ -72,10 +72,10 @@ Mở ứng dụng **Terminal** trên macOS và chạy:
 cd ~/Downloads
 
 # 2. Xóa toàn bộ cờ chặn cách ly của Apple
-sudo /usr/bin/xattr -cr ViTai*
+sudo xattr -cr ViTai.app
 
 # 3. Ký lại chữ ký ứng dụng nội bộ (Ad-hoc)
-codesign -fs - ViTai*
+codesign --force --deep --sign - ViTai.app
 ```
 *(Nhập mật khẩu máy Mac khi được yêu cầu để gỡ cờ kiểm duyệt thành công)*.
 
