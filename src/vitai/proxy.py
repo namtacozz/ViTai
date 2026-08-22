@@ -111,7 +111,8 @@ class CodexSubscriptionAdapter:
         _log.info(f"[CODEX] Gửi request Codex Subscription (model={codex_model}, account={token.account_id or 'N/A'})...")
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            from vitai.http_util import safe_urlopen
+            with safe_urlopen(req, timeout=30) as resp:
                 return cls._parse_sse_response(resp)
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")
@@ -128,7 +129,8 @@ class CodexSubscriptionAdapter:
                     headers=headers,
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=30) as retry_resp:
+                from vitai.http_util import safe_urlopen
+                with safe_urlopen(req, timeout=30) as retry_resp:
                     return cls._parse_sse_response(retry_resp)
             raise RuntimeError(f"OpenAI Codex Error ({e.code}): {err_body[:200]}")
         except Exception as e:
@@ -235,7 +237,8 @@ class GeminiOAuthAdapter:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            from vitai.http_util import safe_urlopen
+            with safe_urlopen(req, timeout=30) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
                 candidates = res_data.get("candidates", [])
                 if candidates:
@@ -283,7 +286,8 @@ class OpenAiCompatibleAdapter:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            from vitai.http_util import safe_urlopen
+            with safe_urlopen(req, timeout=30) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
                 choices = res_data.get("choices", [])
                 if choices:

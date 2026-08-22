@@ -140,7 +140,8 @@ class ModelRegistry:
         req = urllib.request.Request(url, headers=headers, method="GET")
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            from vitai.http_util import safe_urlopen
+            with safe_urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 models = self._parse_model_response(p, data)
                 if models:

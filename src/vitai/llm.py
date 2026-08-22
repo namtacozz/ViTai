@@ -134,6 +134,7 @@ class LlmClient:
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=15) as response:
+        from vitai.http_util import safe_urlopen
+        with safe_urlopen(req, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
             return result["content"][0]["text"].strip()

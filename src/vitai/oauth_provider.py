@@ -193,7 +193,8 @@ def exchange_code_for_token(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        from vitai.http_util import safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         err = e.read().decode("utf-8", errors="ignore")
@@ -270,7 +271,8 @@ def refresh_oauth_token(token: OAuthToken) -> OAuthToken:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        from vitai.http_util import safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         err = e.read().decode("utf-8", errors="ignore")

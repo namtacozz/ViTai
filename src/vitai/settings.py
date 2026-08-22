@@ -2001,8 +2001,8 @@ class RegisterPaymentDialog(QDialog):
                     amount=DEFAULT_REGISTRATION_PRICE,
                     memo=self.order_code,
                 )
-                req = urllib.request.Request(url, headers={"User-Agent": "ViTai-App/3.0"})
-                with urllib.request.urlopen(req, timeout=8) as resp:
+                from vitai.http_util import safe_urlopen
+                with safe_urlopen(req, timeout=8) as resp:
                     if resp.status == 200:
                         raw = resp.read()
                         self.qr_loaded_signal.emit(raw)
