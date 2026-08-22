@@ -10,16 +10,21 @@ from pathlib import Path
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
+    spec_path = root / "ViTai.spec"
+    
     command = [
         sys.executable,
         "-m",
         "PyInstaller",
         "--noconfirm",
-        str(root / "ViTai.spec"),
+        "--clean",
+        str(spec_path),
     ]
-    ret = subprocess.call(command, cwd=root)
-    if ret != 0:
-        return ret
+    print(f"Executing: {' '.join(command)}")
+    res = subprocess.run(command, cwd=root)
+    if res.returncode != 0:
+        print(f"❌ PyInstaller failed with exit code {res.returncode}")
+        return res.returncode
 
     dist_dir = root / "dist" / "ViTai"
     env_example = root / ".env.example"
@@ -46,7 +51,9 @@ def main() -> int:
                     zf.write(file_path, file_path.relative_to(dist_root))
         shutil.copy2(zip_path, zip_generic)
         print(f"🎁 File Release: {zip_path}")
+        print(f"🎁 File Release (Generic): {zip_generic}")
 
+    print("✅ Build Windows thành công!")
     return 0
 
 

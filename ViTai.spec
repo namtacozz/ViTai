@@ -1,30 +1,44 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-import sys
 import os
+import sys
 
-icon_path = 'assets/icon.ico' if os.path.exists('assets/icon.ico') else None
+block_cipher = None
 
-a = Analysis(
-    ['src/vitai/main.py'],
-    pathex=['src'],
-    binaries=[],
-    datas=[('assets', 'assets')],
-    hiddenimports=[
+root_dir = os.path.abspath(SPECPATH)
+icon_file = os.path.join(root_dir, 'assets', 'icon.ico')
+icon_path = icon_file if os.path.exists(icon_file) else None
+
+hidden_imports = ['certifi']
+excludes = []
+
+if sys.platform.startswith('win'):
+    hidden_imports.extend([
         'pynput.keyboard._win32',
         'pynput.mouse._win32',
+    ])
+    excludes.extend(['Xlib', 'evdev'])
+else:
+    hidden_imports.extend([
         'pynput.keyboard._xorg',
         'pynput.mouse._xorg',
-        'certifi',
-    ],
+    ])
+    excludes.extend(['win32api', 'win32con', 'win32gui'])
+
+a = Analysis(
+    [os.path.join(root_dir, 'src', 'vitai', 'main.py')],
+    pathex=[os.path.join(root_dir, 'src')],
+    binaries=[],
+    datas=[(os.path.join(root_dir, 'assets'), 'assets')],
+    hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
     optimize=0,
 )
-pyz = PYZ(a.pure)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
@@ -35,7 +49,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -50,7 +64,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='ViTai',
 )
