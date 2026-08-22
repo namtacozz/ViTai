@@ -239,6 +239,249 @@ class _PynputHotkeyBackend:
         return self._target_key_str in self._pressed_keys
 
 
+class _DarwinCGEventTapHotkeyBackend:
+    """
+    Backend bắt phím tắt & chuột Native Quartz CoreGraphics trên macOS:
+    - Bắt sự kiện bàn phím/chuột toàn cục trực tiếp từ WindowServer
+    - Nhận diện tức thì phím Option+Q, Option+Cmd+V, Option+Ctrl+V...
+    - Tự động phục hồi nếu Event Tap bị hệ thống tạm ngắt (kCGEventTapDisabledByTimeout)
+    """
+    def __init__(self, modifier: str, key: str, callback: Callable[[], None]):
+        self._modifier_str = modifier.lower().strip()
+        raw_key = key.lower().strip()
+        opt_map = {
+            "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
+            "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
+            "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
+        }
+        self._target_key_str = opt_map.get(raw_key, raw_key)
+        self._callback = callback
+        self._last_trigger_time = 0.0
+        self._thread: threading.Thread | None = None
+        self._run_loop: Any = None
+        self._mach_port: Any = None
+        self._callback_ref: Any = None
+        self._running = False
+
+    def start(self) -> None:
+        if sys.platform != "darwin" or self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run_loop_thread, daemon=True, name="DarwinCGEventTap")
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._running = False
+        if self._run_loop:
+            try:
+                import ctypes
+                cf_path = ctypes.util.find_library("CoreFoundation") or "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+                cf = ctypes.cdll.LoadLibrary(cf_path)
+                if hasattr(cf, "CFRunLoopStop"):
+                    cf.CFRunLoopStop(self._run_loop)
+            except Exception:
+                pass
+        self._run_loop = None
+        self._mach_port = None
+
+    def _run_loop_thread(self) -> None:
+        try:
+            import ctypes
+            import ctypes.util
+            cg_path = ctypes.util.find_library("CoreGraphics") or "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+            cf_path = ctypes.util.find_library("CoreFoundation") or "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+            cg = ctypes.cdll.LoadLibrary(cg_path)
+            cf = ctypes.cdll.LoadLibrary(cf_path)
+
+            if not hasattr(cg, "CGEventTapCreate") or not hasattr(cf, "CFRunLoopGetCurrent"):
+                return
+
+            CGEventTapCallback = ctypes.CFUNCTYPE(
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+            )
+
+            kCGSessionEventTap = 1
+            kCGHeadInsertEventTap = 0
+            kCGEventTapOptionListenOnly = 1
+
+            # KeyDown=10, KeyUp=11, FlagsChanged=12, LeftDown=1, RightDown=3, OtherDown=25
+            event_mask = (1 << 10) | (1 << 11) | (1 << 12) | (1 << 1) | (1 << 3) | (1 << 25)
+
+            kCGEventFlagMaskAlternate = 0x00080000  # Option
+            kCGEventFlagMaskCommand   = 0x00100000  # Command
+            kCGEventFlagMaskControl   = 0x00040000  # Control
+            kCGEventFlagMaskShift     = 0x00020000  # Shift
+
+            kCGKeyboardEventKeycode = 9
+            kCGMouseEventButtonNumber = 3
+
+            char_to_vk = {
+                "q": 12, "w": 13, "e": 14, "r": 15, "t": 17, "y": 16, "u": 32, "i": 34, "o": 31, "p": 35,
+                "a": 0, "s": 1, "d": 2, "f": 3, "g": 5, "h": 4, "j": 38, "k": 40, "l": 37,
+                "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "n": 45, "m": 46,
+                "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25, "0": 29,
+                "space": 49, "tab": 48, "return": 36, "enter": 36, "esc": 53,
+            }
+            target_vk = char_to_vk.get(self._target_key_str, None)
+
+            cg.CGEventGetFlags.restype = ctypes.c_uint64
+            cg.CGEventGetFlags.argtypes = [ctypes.c_void_p]
+            cg.CGEventGetIntegerValueField.restype = ctypes.c_int64
+            cg.CGEventGetIntegerValueField.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+
+            def tap_callback(proxy, event_type, event, refcon):
+                if event_type == 0xFFFFFFFE:  # kCGEventTapDisabledByTimeout
+                    if self._mach_port and hasattr(cg, "CGEventTapEnable"):
+                        cg.CGEventTapEnable(self._mach_port, True)
+                    return event
+
+                # Handle KeyDown (10)
+                if event_type == 10:
+                    flags = cg.CGEventGetFlags(event)
+                    keycode = cg.CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
+
+                    is_alt = bool(flags & kCGEventFlagMaskAlternate)
+                    is_cmd = bool(flags & kCGEventFlagMaskCommand)
+                    is_ctrl = bool(flags & kCGEventFlagMaskControl)
+                    is_shift = bool(flags & kCGEventFlagMaskShift)
+
+                    mods_req = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
+                    mod_ok = True
+                    for m in mods_req:
+                        if m == "alt" and not is_alt:
+                            mod_ok = False
+                        elif m == "cmd" and not (is_cmd or is_ctrl):
+                            mod_ok = False
+                        elif m == "ctrl" and not (is_ctrl or is_cmd):
+                            mod_ok = False
+                        elif m == "shift" and not is_shift:
+                            mod_ok = False
+
+                    if mod_ok and target_vk is not None and keycode == target_vk:
+                        now = time.time()
+                        if now - self._last_trigger_time > 0.35:
+                            self._last_trigger_time = now
+                            _LOGGER.info(f"[NATIVE_DARWIN_TAP] 🎯 Phím tắt kích hoạt ({self._modifier_str}+{self._target_key_str})!")
+                            self._callback()
+
+                # Handle Mouse Clicks (1=Left, 3=Right, 25=Other)
+                elif event_type in (1, 3, 25) and self._target_key_str.startswith("mouse_"):
+                    flags = cg.CGEventGetFlags(event)
+                    is_alt = bool(flags & kCGEventFlagMaskAlternate)
+                    is_cmd = bool(flags & kCGEventFlagMaskCommand)
+                    is_ctrl = bool(flags & kCGEventFlagMaskControl)
+                    is_shift = bool(flags & kCGEventFlagMaskShift)
+
+                    mods_req = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
+                    mod_ok = True
+                    for m in mods_req:
+                        if m == "alt" and not is_alt:
+                            mod_ok = False
+                        elif m == "cmd" and not (is_cmd or is_ctrl):
+                            mod_ok = False
+                        elif m == "ctrl" and not (is_ctrl or is_cmd):
+                            mod_ok = False
+                        elif m == "shift" and not is_shift:
+                            mod_ok = False
+
+                    matched_btn = False
+                    if event_type == 3 and self._target_key_str in ("mouse_right", "right"):
+                        matched_btn = True
+                    elif event_type == 1 and self._target_key_str in ("mouse_left", "left"):
+                        matched_btn = True
+                    elif event_type == 25:
+                        btn_num = cg.CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber)
+                        if btn_num == 2 and self._target_key_str in ("mouse_middle", "middle"):
+                            matched_btn = True
+                        elif btn_num == 3 and self._target_key_str in ("mouse_x1", "mouse_side", "x1"):
+                            matched_btn = True
+                        elif btn_num == 4 and self._target_key_str in ("mouse_x2", "mouse_extra", "x2"):
+                            matched_btn = True
+
+                    if mod_ok and matched_btn:
+                        now = time.time()
+                        if now - self._last_trigger_time > 0.35:
+                            self._last_trigger_time = now
+                            _LOGGER.info(f"[NATIVE_DARWIN_TAP] 🖱️ Chuột kích hoạt ({self._modifier_str}+{self._target_key_str})!")
+                            self._callback()
+
+                return event
+
+            self._callback_ref = CGEventTapCallback(tap_callback)
+
+            cg.CGEventTapCreate.restype = ctypes.c_void_p
+            cg.CGEventTapCreate.argtypes = [
+                ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint64,
+                CGEventTapCallback, ctypes.c_void_p
+            ]
+            self._mach_port = cg.CGEventTapCreate(
+                kCGSessionEventTap,
+                kCGHeadInsertEventTap,
+                kCGEventTapOptionListenOnly,
+                event_mask,
+                self._callback_ref,
+                None,
+            )
+
+            if not self._mach_port:
+                _LOGGER.warning("[NATIVE_DARWIN_TAP] Không thể tạo CGEventTap! Yêu cầu cấp quyền Trợ năng (Accessibility)...")
+                from vitai.darwin_compat import check_and_request_macos_accessibility
+                check_and_request_macos_accessibility()
+                return
+
+            cf.CFMachPortCreateRunLoopSource.restype = ctypes.c_void_p
+            cf.CFMachPortCreateRunLoopSource.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long]
+            source = cf.CFMachPortCreateRunLoopSource(None, self._mach_port, 0)
+            if not source:
+                return
+
+            self._run_loop = cf.CFRunLoopGetCurrent()
+            cf.CFRunLoopAddSource.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+            cf.CFRunLoopAddSource(self._run_loop, source, getattr(cf, "kCFRunLoopCommonModes", None))
+
+            cg.CGEventTapEnable(self._mach_port, True)
+            _LOGGER.info(f"[NATIVE_DARWIN_TAP] ✅ Quartz Event Tap đang chạy: {self._modifier_str}+{self._target_key_str}")
+            cf.CFRunLoopRun()
+        except Exception as e:
+            _LOGGER.error(f"[NATIVE_DARWIN_TAP] Lỗi khởi động event tap: {e}")
+
+
+class _DarwinHybridHotkeyBackend:
+    """
+    Backend kết hợp đồng thời Quartz Native Event Tap và Pynput trên macOS
+    để đảm bảo không bao giờ trượt phím tắt.
+    """
+    def __init__(self, modifier: str, key: str, callback: Callable[[], None]):
+        self._shared_last_time = [0.0]
+
+        def _debounced_callback():
+            now = time.time()
+            if now - self._shared_last_time[0] > 0.35:
+                self._shared_last_time[0] = now
+                callback()
+
+        self._pynput = _PynputHotkeyBackend(modifier, key, _debounced_callback)
+        self._native = _DarwinCGEventTapHotkeyBackend(modifier, key, _debounced_callback)
+
+    def start(self) -> None:
+        try:
+            self._native.start()
+        except Exception as e:
+            _LOGGER.warning(f"Native Darwin tap start error: {e}")
+        try:
+            self._pynput.start()
+        except Exception as e:
+            _LOGGER.warning(f"Pynput start error: {e}")
+
+    def stop(self) -> None:
+        self._native.stop()
+        self._pynput.stop()
+
+
 class _Win32HotkeyBackend:
     MODIFIERS = {
         "alt": 0x0001,
@@ -303,7 +546,7 @@ class HotkeyManager:
         self._key = key
         self._callback = callback
         self._backend_id = backend
-        self._backend: _PynputHotkeyBackend | _Win32HotkeyBackend | None = None
+        self._backend: _PynputHotkeyBackend | _Win32HotkeyBackend | _DarwinHybridHotkeyBackend | None = None
 
     def start(self) -> None:
         self._backend = self._create_backend()
@@ -353,7 +596,9 @@ class HotkeyManager:
         return key_disp
 
     def _create_backend(self):
-        # Nếu target_key là phím chuột, bắt buộc dùng pynput
+        if sys.platform == "darwin":
+            return _DarwinHybridHotkeyBackend(self._modifier, self._key, self._callback)
+
         if self._key.startswith("mouse_") or self._backend_id == "pynput":
             return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
 
@@ -364,3 +609,7 @@ class HotkeyManager:
                 _LOGGER.warning("Win32 hotkey backend failed, falling back to pynput: %s", exc)
                 return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
         return _PynputHotkeyBackend(self._modifier, self._key, self._callback)
+
+
+def create_hotkey_manager(modifier: str, key: str, callback: Callable[[], None]) -> HotkeyManager:
+    return HotkeyManager(modifier, key, callback)

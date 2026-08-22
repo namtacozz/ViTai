@@ -165,15 +165,95 @@ def set_darwin_activation_policy(is_accessory: bool = True) -> None:
         pass
 
 
+def check_and_request_macos_accessibility() -> bool:
+    """
+    Kiểm tra và tự động kích hoạt hộp thoại yêu cầu quyền Trợ năng (Accessibility) trên macOS.
+    Nếu chưa được cấp quyền, macOS sẽ hiện hộp thoại thông báo yêu cầu cấp quyền cho ViTai.
+    """
+    if sys.platform != "darwin":
+        return True
+    try:
+        import ctypes
+        import ctypes.util
+        as_path = ctypes.util.find_library("ApplicationServices") or "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        cf_path = ctypes.util.find_library("CoreFoundation") or "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+        as_lib = ctypes.cdll.LoadLibrary(as_path)
+        cf_lib = ctypes.cdll.LoadLibrary(cf_path)
+
+        if not hasattr(as_lib, "AXIsProcessTrusted"):
+            return True
+
+        as_lib.AXIsProcessTrusted.restype = ctypes.c_bool
+        as_lib.AXIsProcessTrusted.argtypes = []
+        is_trusted = as_lib.AXIsProcessTrusted()
+        if is_trusted:
+            return True
+
+        # Yêu cầu quyền bằng AXIsProcessTrustedWithOptions({kAXTrustedCheckOptionPrompt: true})
+        if hasattr(as_lib, "AXIsProcessTrustedWithOptions") and hasattr(cf_lib, "CFDictionaryCreate"):
+            cf_str = ctypes.c_void_p.in_dll(as_lib, "kAXTrustedCheckOptionPrompt")
+            cf_true = ctypes.c_void_p.in_dll(cf_lib, "kCFBooleanTrue")
+
+            cf_lib.CFDictionaryCreate.restype = ctypes.c_void_p
+            cf_lib.CFDictionaryCreate.argtypes = [
+                ctypes.c_void_p,
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_long,
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+            ]
+            keys = (ctypes.c_void_p * 1)(cf_str)
+            values = (ctypes.c_void_p * 1)(cf_true)
+            options = cf_lib.CFDictionaryCreate(None, keys, values, 1, None, None)
+
+            as_lib.AXIsProcessTrustedWithOptions.restype = ctypes.c_bool
+            as_lib.AXIsProcessTrustedWithOptions.argtypes = [ctypes.c_void_p]
+            trusted = as_lib.AXIsProcessTrustedWithOptions(options)
+            if options and hasattr(cf_lib, "CFRelease"):
+                cf_lib.CFRelease(options)
+            return bool(trusted)
+        return False
+    except Exception as e:
+        _LOGGER.debug(f"check_and_request_macos_accessibility error: {e}")
+        return True
+
+
+def _get_cocoa_nswindow(view_ptr: int) -> Any:
+    """Lấy con trỏ NSWindow từ con trỏ NSView của Qt thông qua ctypes libobjc."""
+    if not view_ptr or sys.platform != "darwin":
+        return None
+    try:
+        import ctypes
+        import ctypes.util
+        objc_path = ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+        objc = ctypes.cdll.LoadLibrary(objc_path)
+        if not hasattr(objc, "objc_getClass") or not hasattr(objc, "sel_registerName"):
+            return None
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.sel_registerName.argtypes = [ctypes.c_char_p]
+        objc.objc_msgSend.restype = ctypes.c_void_p
+        objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+
+        sel_window = objc.sel_registerName(b"window")
+        ns_win = objc.objc_msgSend(ctypes.c_void_p(view_ptr), sel_window)
+        return ns_win
+    except Exception:
+        return None
+
+
 def setup_macos_ghost_window(widget: Any) -> None:
     """
     Cấu hình NSWindow của Ghost Overlay:
-    - Mức hiển thị cao (NSStatusWindowLevel = 25) nổi xuyên suốt mọi ứng dụng & Spaces
+    - Mức hiển thị cao (Level 1000 = NSScreenSaverWindowLevel / Overlay) nổi xuyên suốt mọi ứng dụng & Fullscreen Google Chrome
+    - Cấu hình Spaces (339): Xuất hiện ngay trên Space hiện tại của Chrome mà không cần tab chuyển Space
     - Xuyên thấu chuột (ignoresMouseEvents = True)
     - Không cướp focus, không che khuất Google Chrome
     """
     if sys.platform != "darwin" or widget is None:
         return
+
+    configured = False
     try:
         import objc
         import AppKit
@@ -181,10 +261,10 @@ def setup_macos_ghost_window(widget: Any) -> None:
         ns_view = objc.objc_object(c_void_p=view_ptr)
         ns_win = ns_view.window()
         if ns_win:
-            # Level 25 = NSStatusWindowLevel
-            ns_win.setLevel_(AppKit.NSStatusWindowLevel)
+            ns_win.setLevel_(1000)
             behavior = (
                 AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
+                | AppKit.NSWindowCollectionBehaviorMoveToActiveSpace
                 | AppKit.NSWindowCollectionBehaviorStationary
                 | AppKit.NSWindowCollectionBehaviorIgnoresCycle
                 | AppKit.NSWindowCollectionBehaviorFullScreenAuxiliary
@@ -194,8 +274,44 @@ def setup_macos_ghost_window(widget: Any) -> None:
             ns_win.setOpaque_(False)
             ns_win.setHasShadow_(False)
             ns_win.setHidesOnDeactivate_(False)
-    except Exception as e:
-        _LOGGER.debug(f"setup_macos_ghost_window error: {e}")
+            configured = True
+    except Exception:
+        pass
+
+    if not configured:
+        try:
+            import ctypes
+            import ctypes.util
+            view_ptr = int(widget.winId())
+            ns_win = _get_cocoa_nswindow(view_ptr)
+            if ns_win:
+                objc_path = ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+                objc = ctypes.cdll.LoadLibrary(objc_path)
+                objc.sel_registerName.restype = ctypes.c_void_p
+                objc.sel_registerName.argtypes = [ctypes.c_char_p]
+                msg_send = objc.objc_msgSend
+                msg_send.restype = ctypes.c_void_p
+
+                # setLevel: 1000
+                sel_setLevel = objc.sel_registerName(b"setLevel:")
+                msg_send_level = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long))
+                msg_send_level(ns_win, sel_setLevel, ctypes.c_long(1000))
+
+                # setCollectionBehavior: 339
+                sel_behavior = objc.sel_registerName(b"setCollectionBehavior:")
+                msg_send_behavior = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong))
+                msg_send_behavior(ns_win, sel_behavior, ctypes.c_ulong(339))
+
+                # setIgnoresMouseEvents: True
+                sel_mouse = objc.sel_registerName(b"setIgnoresMouseEvents:")
+                msg_send_bool = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool))
+                msg_send_bool(ns_win, sel_mouse, True)
+
+                # setHidesOnDeactivate: False
+                sel_hides = objc.sel_registerName(b"setHidesOnDeactivate:")
+                msg_send_bool(ns_win, sel_hides, False)
+        except Exception as e:
+            _LOGGER.debug(f"setup_macos_ghost_window ctypes error: {e}")
 
 
 def order_front_regardless(widget: Any) -> None:
@@ -204,6 +320,7 @@ def order_front_regardless(widget: Any) -> None:
     """
     if sys.platform != "darwin" or widget is None:
         return
+    ordered = False
     try:
         import objc
         import AppKit
@@ -212,8 +329,27 @@ def order_front_regardless(widget: Any) -> None:
         ns_win = ns_view.window()
         if ns_win:
             ns_win.orderFrontRegardless()
+            ordered = True
     except Exception:
         pass
+
+    if not ordered:
+        try:
+            import ctypes
+            import ctypes.util
+            view_ptr = int(widget.winId())
+            ns_win = _get_cocoa_nswindow(view_ptr)
+            if ns_win:
+                objc_path = ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+                objc = ctypes.cdll.LoadLibrary(objc_path)
+                objc.sel_registerName.restype = ctypes.c_void_p
+                objc.sel_registerName.argtypes = [ctypes.c_char_p]
+                sel_order = objc.sel_registerName(b"orderFrontRegardless")
+                objc.objc_msgSend.restype = ctypes.c_void_p
+                objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+                objc.objc_msgSend(ns_win, sel_order)
+        except Exception as e:
+            _LOGGER.debug(f"order_front_regardless ctypes error: {e}")
 
 
 def bring_window_to_front(widget: Any) -> None:
@@ -229,6 +365,7 @@ def bring_window_to_front(widget: Any) -> None:
     widget.activateWindow()
 
     if sys.platform == "darwin":
+        brought = False
         try:
             import AppKit
             ns_app = AppKit.NSApplication.sharedApplication()
@@ -241,8 +378,43 @@ def bring_window_to_front(widget: Any) -> None:
             if ns_win:
                 ns_win.makeKeyAndOrderFront_(None)
                 ns_win.orderFrontRegardless()
+                brought = True
         except Exception:
             pass
+
+        if not brought:
+            try:
+                import ctypes
+                import ctypes.util
+                objc_path = ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+                objc = ctypes.cdll.LoadLibrary(objc_path)
+                if hasattr(objc, "objc_getClass") and hasattr(objc, "sel_registerName"):
+                    objc.sel_registerName.restype = ctypes.c_void_p
+                    objc.sel_registerName.argtypes = [ctypes.c_char_p]
+                    objc.objc_getClass.restype = ctypes.c_void_p
+                    objc.objc_getClass.argtypes = [ctypes.c_char_p]
+                    objc.objc_msgSend.restype = ctypes.c_void_p
+                    objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+
+                    cls_nsapp = objc.objc_getClass(b"NSApplication")
+                    sel_shared = objc.sel_registerName(b"sharedApplication")
+                    if cls_nsapp and sel_shared:
+                        ns_app = objc.objc_msgSend(cls_nsapp, sel_shared)
+                        sel_activate = objc.sel_registerName(b"activateIgnoringOtherApps:")
+                        if ns_app and sel_activate:
+                            msg_send_bool = ctypes.cast(objc.objc_msgSend, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool))
+                            msg_send_bool(ns_app, sel_activate, True)
+
+                    view_ptr = int(widget.winId())
+                    ns_win = _get_cocoa_nswindow(view_ptr)
+                    if ns_win:
+                        sel_makeKey = objc.sel_registerName(b"makeKeyAndOrderFront:")
+                        sel_order = objc.sel_registerName(b"orderFrontRegardless")
+                        msg_send_ptr = ctypes.cast(objc.objc_msgSend, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p))
+                        msg_send_ptr(ns_win, sel_makeKey, None)
+                        objc.objc_msgSend(ns_win, sel_order)
+            except Exception as e:
+                _LOGGER.debug(f"bring_window_to_front ctypes error: {e}")
 
 
 def send_cmd_c_macos() -> bool:

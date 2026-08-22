@@ -28,6 +28,11 @@ echo "📦 Tạo file nén Release ($VERSION)..."
 chmod -R +x dist/ViTai.app/Contents/MacOS/* 2>/dev/null || true
 chmod +x dist/ViTai/ViTai 2>/dev/null || true
 
+if command -v codesign &>/dev/null && [ -d "dist/ViTai.app" ]; then
+    echo "🔏 Đang ký ad-hoc codesign cho ViTai.app..."
+    codesign --force --deep --sign - dist/ViTai.app 2>/dev/null || true
+fi
+
 TARGETS=()
 if [ -d "dist/ViTai.app" ]; then
     TARGETS+=("ViTai.app")

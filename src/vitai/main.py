@@ -138,7 +138,12 @@ class ViTaiApp:
         self.selection_anchor: tuple[int, int] | None = None
         self.mouse_listener: mouse.Listener | None = None
 
-        # 1. Hotkey Answer Trigger qua pynput (hoạt động tốt trên macOS/Windows/X11)
+        # 0. Yêu cầu quyền Accessibility trên macOS
+        if sys.platform == "darwin":
+            from vitai.darwin_compat import check_and_request_macos_accessibility
+            check_and_request_macos_accessibility()
+
+        # 1. Hotkey Answer Trigger (Mặc định: Alt + Q / Option + Q)
         self.hotkey_manager = HotkeyManager(
             self.config.hotkey_modifier,
             self.config.hotkey_key,

@@ -262,3 +262,37 @@ def test_darwin_ghost_window_and_front_helpers():
         assert mock_widget.raise_.called
         assert mock_widget.activateWindow.called
 
+
+def test_check_and_request_macos_accessibility():
+    from vitai.darwin_compat import check_and_request_macos_accessibility
+
+    # On linux should return True
+    with patch("sys.platform", "linux"):
+        assert check_and_request_macos_accessibility() is True
+
+    # On darwin should be safe
+    with patch("sys.platform", "darwin"):
+        result = check_and_request_macos_accessibility()
+        assert isinstance(result, bool)
+
+
+def test_darwin_hybrid_and_native_backend_instantiation():
+    from vitai.hotkey import (
+        HotkeyManager,
+        _DarwinCGEventTapHotkeyBackend,
+        _DarwinHybridHotkeyBackend,
+    )
+
+    cb = MagicMock()
+    with patch("sys.platform", "darwin"):
+        mgr = HotkeyManager("alt", "q", cb)
+        backend = mgr._create_backend()
+        assert isinstance(backend, _DarwinHybridHotkeyBackend)
+        assert backend._pynput is not None
+        assert backend._native is not None
+
+        native_backend = _DarwinCGEventTapHotkeyBackend("alt", "q", cb)
+        assert native_backend._target_key_str == "q"
+        assert native_backend._modifier_str == "alt"
+        native_backend.stop()
+

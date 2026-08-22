@@ -39,10 +39,9 @@ class AnswerOverlay(QWidget):
             | Qt.WindowType.WindowDoesNotAcceptFocus
             | Qt.WindowType.Tool
             | Qt.WindowType.WindowTransparentForInput
-            | Qt.WindowType.ToolTip
         )
         if sys.platform != "darwin":
-            flags |= Qt.WindowType.BypassWindowManagerHint
+            flags |= Qt.WindowType.BypassWindowManagerHint | Qt.WindowType.ToolTip
         if sys.platform.startswith("linux"):
             flags |= Qt.WindowType.X11BypassWindowManagerHint
 
@@ -125,7 +124,8 @@ class AnswerOverlay(QWidget):
             self._move_to_anchor()
         self.show()
         if sys.platform == "darwin":
-            from vitai.darwin_compat import order_front_regardless
+            from vitai.darwin_compat import setup_macos_ghost_window, order_front_regardless
+            setup_macos_ghost_window(self)
             order_front_regardless(self)
         else:
             self.raise_()
