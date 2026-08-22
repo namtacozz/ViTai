@@ -78,8 +78,14 @@ def format_key_display(key_str: str) -> str:
 
 class _PynputHotkeyBackend:
     def __init__(self, modifier: str, key: str, callback: Callable[[], None]):
-        self._modifier_str = modifier.lower()
-        self._target_key_str = key.lower()
+        opt_map = {
+            "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
+            "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
+            "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
+        }
+        self._modifier_str = modifier.lower().strip()
+        raw_key = key.lower().strip()
+        self._target_key_str = opt_map.get(raw_key, raw_key)
         self._callback = callback
         self._pressed_keys: set[str] = set()
         self._last_trigger_time = 0.0
@@ -172,12 +178,13 @@ class _PynputHotkeyBackend:
     def _on_press(self, key) -> None:
         name = self._canonical(key)
         self._pressed_keys.add(name)
+        _LOGGER.info(f"[HOTKEY] 🎹 Nhận phím: '{name}' | Đang giữ: {list(self._pressed_keys)} | Chờ: '{self._modifier_str}+{self._target_key_str}'")
 
         if not self._is_mouse_trigger() and self._check_match():
             now = time.time()
             if now - self._last_trigger_time > 0.4:
                 self._last_trigger_time = now
-                _LOGGER.info(f"[HOTKEY] ✅ Phát hiện phím tắt bàn phím: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
+                _LOGGER.info(f"[HOTKEY] ✅ Khớp phím tắt bàn phím: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
                 self._callback()
 
     def _on_release(self, key) -> None:

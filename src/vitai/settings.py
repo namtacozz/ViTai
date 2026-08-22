@@ -1213,16 +1213,25 @@ class HotkeyInputButton(QPushButton):
         if not modifiers:
             modifiers.append("cmd" if sys.platform == "darwin" else "alt")
 
-        text = a0.text().lower()
-        if text and text.isalpha():
-            key_char = text
+        if 65 <= key_code <= 90:
+            key_char = chr(key_code).lower()
+        elif Qt.Key.Key_0 <= key_code <= Qt.Key.Key_9:
+            key_char = chr(key_code)
+        elif Qt.Key.Key_F1 <= key_code <= Qt.Key.Key_F12:
+            key_char = f"f{key_code - Qt.Key.Key_F1 + 1}"
+        elif key_code == Qt.Key.Key_Space:
+            key_char = "space"
         else:
-            if 65 <= key_code <= 90:
-                key_char = chr(key_code).lower()
-            elif Qt.Key.Key_F1 <= key_code <= Qt.Key.Key_F12:
-                key_char = f"f{key_code - Qt.Key.Key_F1 + 1}"
-            elif key_code == Qt.Key.Key_Space:
-                key_char = "space"
+            text = a0.text().lower()
+            opt_map = {
+                "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
+                "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
+                "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
+            }
+            if text in opt_map:
+                key_char = opt_map[text]
+            elif text and text.isalnum():
+                key_char = text
             else:
                 key_char = "q"
 

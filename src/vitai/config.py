@@ -45,6 +45,15 @@ def load_config(path: Path | None = None) -> AppConfig:
 
     defaults = asdict(AppConfig())
     defaults.update({key: value for key, value in data.items() if key in defaults})
+
+    opt_map = {
+        "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
+        "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
+        "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
+    }
+    if "hotkey_key" in defaults and isinstance(defaults["hotkey_key"], str):
+        defaults["hotkey_key"] = opt_map.get(defaults["hotkey_key"].lower().strip(), defaults["hotkey_key"])
+
     return AppConfig(**defaults)
 
 
