@@ -56,7 +56,41 @@ Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và t�
 
 * 🪟 **Windows (10 / 11)**: Tải `ViTai-Windows-x64.zip` $\rightarrow$ Giải nén $\rightarrow$ Chạy `ViTai.exe`.
 * 🐧 **Linux (Fedora / Ubuntu / Arch)**: Tải `ViTai-Linux-x86_64.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy `./ViTai`.
-* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-MacOS.tar.gz` $\rightarrow$ Mở `ViTai.app` hoặc chạy `./ViTai`.
+* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-*-macos-*.tar.gz` $\rightarrow$ Xem hướng dẫn cấu hình macOS bên dưới.
+
+---
+
+### 🍎 Hướng dẫn chi tiết cho macOS (Gatekeeper & Trợ năng)
+
+Do cơ chế bảo mật **Gatekeeper** của macOS tự động chặn các ứng dụng tải về từ internet chưa đăng ký chứng chỉ trả phí của Apple, bạn chỉ cần thực hiện các bước sau:
+
+#### 1. Gỡ chặn kiểm duyệt Gatekeeper & Ký xác minh
+Mở ứng dụng **Terminal** trên macOS và chạy các dòng lệnh sau:
+
+```bash
+# 1. Đi vào thư mục Tải về
+cd ~/Downloads
+
+# 2. Xóa toàn bộ cờ chặn cách ly của Apple
+sudo /usr/bin/xattr -cr ViTai*
+
+# 3. Ký lại chữ ký ứng dụng nội bộ (Ad-hoc)
+codesign -fs - ViTai*
+```
+*(Nhập mật khẩu máy Mac khi được yêu cầu để gỡ cờ kiểm duyệt thành công)*.
+
+#### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt
+Để ViTai có thể bắt phím tắt toàn cục và tự động trích xuất nội dung bôi đen:
+1. Vào **Cài đặt hệ thống** (*System Settings*) $\rightarrow$ **Quyền riêng tư & Bảo mật** (*Privacy & Security*).
+2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **Terminal** (hoặc file **ViTai**).
+3. Vào mục **Giám sát đầu vào** (*Input Monitoring*) $\rightarrow$ Bật công tắc xanh cho **Terminal** (hoặc file **ViTai**).
+
+#### 3. Phím tắt & Mở Cài Đặt trên macOS
+* **Mở bảng Cài Đặt**: Chạy lệnh `./ViTai --settings` hoặc `./ViTai --menu`.
+* **Phím kích hoạt giải đề (`Alt + Q`)**: Bấm tổ hợp **`Option (⌥) + Q`**.
+* **Phím tắt mở Cài Đặt (`Ctrl + Alt + V`)**: Bấm tổ hợp **`Control (⌃) + Option (⌥) + V`**.
+
+---
 
 > 💡 **Khuyến nghị cho Linux Wayland / Fedora**:
 > Thêm quyền đọc thiết bị chuột cấp Kernel cho user hiện tại:
@@ -64,9 +98,6 @@ Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và t�
 > sudo usermod -aG input $USER
 > ```
 > *(Sau đó Đăng xuất và Đăng nhập lại 1 lần)*
-
-> 💡 **Khuyến nghị cho macOS**:
-> Cấp quyền **Accessibility (Trợ năng)** và **Input Monitoring (Theo dõi đầu vào)** trong *System Settings $\rightarrow$ Privacy & Security* để app nhận phím tắt toàn cục.
 
 ---
 
