@@ -495,6 +495,10 @@ def main() -> int:
         if send_menu_trigger():
             return 0
 
+    # Nếu ứng dụng đã chạy ngầm từ trước, chuyển giao diện Cài đặt lên phía trước
+    if send_menu_trigger():
+        return 0
+
     app = ViTaiApp()
     app.show_settings()
     return app.run()

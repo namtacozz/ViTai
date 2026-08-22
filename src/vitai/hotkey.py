@@ -204,19 +204,32 @@ class _PynputHotkeyBackend:
                 _LOGGER.info(f"[HOTKEY] 🖱️ Phát hiện phím chuột kích hoạt: {self._modifier_str}+{self._target_key_str} → Kích hoạt!")
                 self._callback()
 
+    def _is_mod_pressed(self, mod: str) -> bool:
+        if not mod:
+            return True
+        if mod in self._pressed_keys:
+            return True
+        if sys.platform == "darwin":
+            # Trên macOS, cho phép dùng cả Control (⌃) hoặc Command (⌘) khi cài đặt phím ctrl
+            if mod == "ctrl" and "cmd" in self._pressed_keys:
+                return True
+            if mod == "cmd" and "ctrl" in self._pressed_keys:
+                return True
+        return False
+
     def _check_modifiers_only(self) -> bool:
         if not self._modifier_str or self._modifier_str in ("none", ""):
             return True
         mods = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
         for m in mods:
-            if m and m not in self._pressed_keys:
+            if m and not self._is_mod_pressed(m):
                 return False
         return True
 
     def _check_match(self) -> bool:
         mods = [_normalize_modifier(m) for m in self._modifier_str.split("+") if m.strip()]
         for m in mods:
-            if m and m not in self._pressed_keys:
+            if m and not self._is_mod_pressed(m):
                 return False
         return self._target_key_str in self._pressed_keys
 
