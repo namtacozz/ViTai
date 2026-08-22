@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import sys
 from PyQt6.QtCore import QPoint, Qt, QTimer
 from PyQt6.QtGui import QFont, QMouseEvent
 from PyQt6.QtWidgets import (
@@ -11,9 +13,6 @@ from PyQt6.QtWidgets import (
 
 from vitai.config import AppConfig
 
-
-import re
-import sys
 
 def _clean_color(color_val: str | None) -> str:
     if not color_val:
@@ -31,17 +30,17 @@ class AnswerOverlay(QWidget):
         self._anchor = QPoint(0, 0)
 
         # Cửa sổ hoàn toàn trong suốt, không viền, luôn nổi trên cùng mọi ứng dụng (Ghost Overlay)
-        # Sử dụng Tool | WindowStaysOnTopHint | WindowTransparentForInput | ToolTip
-        # để đảm bảo hiển thị nổi lập tức trên toàn màn hình và không bao giờ xuất hiện trong Alt+Tab / Cmd+Tab
+        # Sử dụng Tool | WindowStaysOnTopHint | WindowTransparentForInput | ToolTip | BypassWindowManagerHint
+        # để đảm bảo hiển thị nổi lập tức trên toàn màn hình và không bao giờ xuất hiện trong Alt+Tab
         flags = (
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
             | Qt.WindowType.Tool
             | Qt.WindowType.WindowTransparentForInput
+            | Qt.WindowType.BypassWindowManagerHint
+            | Qt.WindowType.ToolTip
         )
-        if sys.platform != "darwin":
-            flags |= Qt.WindowType.BypassWindowManagerHint | Qt.WindowType.ToolTip
         if sys.platform.startswith("linux"):
             flags |= Qt.WindowType.X11BypassWindowManagerHint
 
@@ -55,10 +54,6 @@ class AnswerOverlay(QWidget):
 
         self._build_ui()
         self.set_answer(text)
-
-        if sys.platform == "darwin":
-            from vitai.darwin_compat import setup_macos_ghost_window
-            setup_macos_ghost_window(self)
 
         if timeout_ms > 0:
             QTimer.singleShot(timeout_ms, self.hide_overlay)
@@ -123,12 +118,7 @@ class AnswerOverlay(QWidget):
         else:
             self._move_to_anchor()
         self.show()
-        if sys.platform == "darwin":
-            from vitai.darwin_compat import setup_macos_ghost_window, order_front_regardless
-            setup_macos_ghost_window(self)
-            order_front_regardless(self)
-        else:
-            self.raise_()
+        self.raise_()
 
     def _move_to_anchor(self) -> None:
         screen = QApplication.primaryScreen()

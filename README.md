@@ -1,19 +1,16 @@
 <div align="center">
 
-# 👻 ViTai v3.2.3 — Vì Người Tài
-### *Siêu trợ lý AI bôi đen cực nhanh — Ẩn mình tuyệt đối — Tối ưu cho macOS, Linux (Fedora/Ubuntu Wayland & X11) & Windows*
+# 👻 ViTai v3.3.0 — Vì Người Tài
+### *Trợ lý AI giải trắc nghiệm & phân tích câu hỏi siêu tốc — Ẩn mình tuyệt đối*
 
-[![Version](https://img.shields.io/badge/Version-v3.2.3-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?style=for-the-badge&logo=qt&logoColor=white)](https://www.qt.io/)
-[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%2F%20Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
+[![Version](https://img.shields.io/badge/Version-v3.3.0-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
 [![Linux](https://img.shields.io/badge/Linux-Fedora%2044%20%2F%20Ubuntu-51A2DA?style=for-the-badge&logo=linux&logoColor=white)](https://getfedora.org/)
 [![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 <br/>
 
-[Tính năng v3.2.3](#-tính-năng-đột-phá-v323) • [Tải về & Cài đặt](#-tải-về--cài-đặt-nhanh) • [Hướng dẫn sử dụng](#-hướng-dẫn-sử-dụng) • [Quản trị & Đăng ký VietQR](#-quản-trị--kích-hoạt-tự-động-vietqr) • [Tự Build](#-build-từ-mã-nguồn)
+[Tải về & Cài đặt](#-tải-về--cài-đặt-nhanh) • [Cách sử dụng](#-hướng-dẫn-sử-dụng) • [Tài khoản & Kích hoạt](#-tài-khoản--cơ-chế-hoạt-động) • [Tính năng nổi bật](#-tính-năng-cốt-lõi)
 
 ---
 
@@ -21,170 +18,95 @@
 
 ## 🌟 Giới thiệu
 
-**ViTai** (tên ứng dụng: **"Vì Người Tài"**) là siêu trợ lý AI ẩn mình (**Ghost Assistant**) đỉnh cao, được thiết kế chuyên biệt để giải đề thi, câu hỏi trắc nghiệm, và phân tích tài liệu siêu tốc ngay khi bạn vừa bôi đen văn bản trên màn hình.
+**ViTai** ("Vì Người Tài") là công cụ hỗ trợ học tập và giải đề thi trắc nghiệm thông minh. Ứng dụng hoạt động theo cơ chế **ẩn mình tuyệt đối (Ghost Assistant)**: chỉ cần bôi đen câu hỏi trên màn hình, đáp án chính xác sẽ xuất hiện ngay lập tức mà không làm gián đoạn bài làm của bạn.
 
-Phiên bản **v3.2.3** mang đến trải nghiệm hoàn hảo với triết lý **"Zero-Footprint" (Không để lại dấu vết)**:
-* **Không icon Taskbar/System Tray**: Ứng dụng chạy ngầm tuyệt đối, không làm phiền màn hình làm việc.
-* **Không xuất hiện trong Alt + Tab / Cmd + Tab**: Hoàn toàn vô hình trước trình quản lý cửa sổ hệ điều hành.
-* **Ghost Direct Overlay**: Chỉ hiển thị duy nhất **1 ký tự đáp án** nổi nhẹ nhàng ngay sát đuôi đoạn văn bản vừa bôi đen và biến mất ngay khi nhấp chuột.
-* **Không cướp Focus trên macOS / Google Chrome**: Đáp án hiển thị trực tiếp trên trình duyệt mà không làm mất tiêu điểm hay tab chuyển ứng dụng.
-* **Tự động kích hoạt tài khoản 24/7**: Tích hợp cổng thanh toán VietQR ngân hàng (SePay API) cho phép người dùng tự quét mã chuyển khoản 50.000đ và kích hoạt tài khoản ngay tức thì.
-
----
-
-## 🚀 Tính năng đột phá v3.2.3
-
-| Tính năng | Mô tả chi tiết |
-|---|---|
-| 👻 **Pure Ghost Direct Overlay** | Lớp phủ trong suốt 100%, không viền, không khung nền. Ký tự đáp án (`A`, `B`, `C`, `D`...) xuất hiện ngay sát cạnh phải ký tự cuối cùng của đoạn văn bản bôi đen. |
-| 🍏 **macOS Zero-Tab Switch HUD** | Tối ưu hóa chuyên sâu cho macOS Cocoa/Quartz: không nhảy cửa sổ, không chuyển tab khỏi Google Chrome/Safari khi bấm giải bài (`Option + Q`). |
-| 🎯 **Căn Tọa Độ Đuôi Bôi Đen** | Tự động nhận diện tọa độ kết thúc của thao tác bôi đen (kéo chuột hoặc click đúp) trên cả **Windows, Linux (Wayland/X11), macOS**. |
-| ⌨️ **Mở Menu Cài Đặt Linh Hoạt** | Bấm **`Option (⌥) + Command (⌘) + V`**, **`Option (⌥) + Control (⌃) + V`** hoặc **click đúp vào `ViTai.app`** bất kỳ lúc nào để mở lại bảng Cài đặt. |
-| 💳 **Kích Hoạt Tự Động VietQR 50.000đ** | Tích hợp cổng thanh toán SePay quét mã VietQR ngân hàng **MBBank (`99924052005 - LE VO THANH NAM`)**, tự động xác nhận và mở khóa tài khoản ngay lập tức. |
-| 🛡️ **Bảo Mật Phần Cứng & Hybrid Cloud Auth** | Khóa cố định địa chỉ MAC ở lần đăng nhập đầu tiên cho User thường. Tài khoản Admin gốc `vinguoitai` đăng nhập tự do mọi máy tính. Đồng bộ đa máy qua Supabase / Firebase. |
-| 👨‍💼 **Menu Quản Trị Người Dùng Toàn Diện** | Tab Quản Trị hiển thị danh sách người dùng, mật khẩu, vai trò, địa chỉ MAC, cho phép Thêm User, Reset MAC, Đổi Mật Khẩu, Khóa/Mở và Xóa User trực quan. |
-| 🎨 **Bảng Màu Tròn 360° & Xem Trước Đa Nền** | Bảng chọn màu nghệ thuật Photoshop/Aseprite style; khung xem trước hỗ trợ chuyển đổi linh hoạt giữa **Nền Đen** và **Nền Trắng** để kiểm tra độ tương phản. |
-| 💾 **Lưu Bền Vững Cấu Hình & Model AI** | Lưu giữ Model AI (`config.model`), Provider, Hotkey, Theme (Sáng/Tối) và màu sắc đã chọn giữa mọi lần khởi động app. |
-| ⚡ **Multi-Desktop Fallback Fast Mode** | Tự động phân tích câu hỏi ngay khi nhả chuột bôi đen (debounce 0.75s) trên Wayland (`wl-paste`), X11 (`xclip`/`xsel`) và macOS/Windows. |
-| 🤖 **Đa Dạng AI Provider** | Hỗ trợ OpenAI Codex (ChatGPT Plus/Pro), Google Gemini, Kiro AI, 9Router Local Proxy (:20128), OpenRouter, Groq và DeepSeek. |
-| ⚡ **Bộ Nhớ Đệm Smart Answer Cache** | Lưu tạm đáp án các câu hỏi đã hỏi giúp phản hồi tức thì (**0ms**) khi gặp lại câu trùng lặp. |
+* 🎯 **Hiển thị trực tiếp**: Chỉ xuất hiện duy nhất 1 ký tự đáp án (`A`, `B`, `C`, `D`...) nổi nhẹ ngay sát đuôi đoạn bôi đen.
+* 👻 **Tàng hình hoàn toàn**: Không icon thanh tác vụ (Taskbar), không hiện trong `Alt + Tab`, click chuột bất kỳ là biến mất.
+* ⚡ **Phản hồi tức thì**: Kết nối trực tiếp các mô hình AI hàng đầu (Gemini, ChatGPT, Kiro, DeepSeek...) để đưa ra câu trả lời trong tích tắc.
 
 ---
 
 ## 📥 Tải về & Cài đặt nhanh
 
-### Tải bản đóng gói sẵn (Releases)
+Tải bản phát hành mới nhất tại mục [Releases](https://github.com/namtacozz/ViTai/releases):
 
-Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và tải bản tương ứng:
+### 🪟 Dành cho Windows (10 / 11)
+1. Tải file **`ViTai-Windows-x64.zip`** (hoặc `ViTai-v3.3.0-windows-x64.zip`).
+2. Giải nén vào một thư mục bất kỳ.
+3. Chạy file **`ViTai.exe`** để bắt đầu sử dụng (không cần cài đặt phần mềm phụ trợ).
 
-* 🪟 **Windows (10 / 11)**: Tải `ViTai-Windows-x64.zip` $\rightarrow$ Giải nén $\rightarrow$ Chạy `ViTai.exe`.
-* 🐧 **Linux (Fedora / Ubuntu / Arch)**: Tải `ViTai-Linux-x86_64.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy `./ViTai`.
-* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-v3.2.3-macos-*.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy **`ViTai.app`** trực tiếp.
-
----
-
-### 🍎 Hướng dẫn chi tiết cho macOS (Cấp quyền & Khởi chạy)
-
-Bản build macOS tự động tạo gói ứng dụng chuẩn **`ViTai.app`** chạy ngầm tàng hình, không mở cửa sổ Terminal và không cướp focus của Google Chrome:
-
-#### 1. Gỡ chặn kiểm duyệt Gatekeeper & Ký xác minh (Chỉ làm 1 lần đầu)
-Mở ứng dụng **Terminal** trên macOS và chạy:
-
-```bash
-# Xóa toàn bộ cờ cách ly của Apple Gatekeeper cho ViTai.app (áp dụng cho cả thư mục Downloads hoặc thư mục giải nén)
-sudo xattr -cr ~/Downloads/ViTai*.app ~/Downloads/*/ViTai.app 2>/dev/null || sudo xattr -cr ViTai.app
-
-# Ký lại chứng chỉ nội bộ Ad-hoc
-codesign --force --deep --sign - ~/Downloads/*/ViTai.app 2>/dev/null || codesign --force --deep --sign - ViTai.app
-```
-*(Nhập mật khẩu máy Mac của bạn khi được hỏi để hoàn tất)*.
-
-> 💡 **Cách gỡ chặn nhanh không cần gõ lệnh**: Trong Finder, nhấp **chuột phải** (hoặc giữ phím `Control` rồi click) vào `ViTai.app` $\rightarrow$ Chọn **Open** (*Mở*) $\rightarrow$ Nhấn **Open** xác nhận.
-
-#### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt (Bắt buộc)
-Để ViTai có thể lắng nghe phím tắt toàn cục và đọc nội dung văn bản bôi đen:
-1. Mở **Cài đặt hệ thống** (*System Settings*) $\rightarrow$ Chọn **Quyền riêng tư & Bảo mật** (*Privacy & Security*).
-2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal** nếu chạy bằng lệnh).
-3. Vào mục **Giám sát đầu vào** (*Input Monitoring*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal**).
-
-#### 3. Khởi chạy & Sử dụng trên macOS
-* **Khởi chạy ứng dụng**: Click đúp vào **`ViTai.app`** (hoặc gõ `open ViTai.app`).
-* **Lấy đáp án giải đề (`Option + Q`)**: Bôi đen câu hỏi trong Google Chrome $\rightarrow$ Bấm **`Option (⌥) + Q`** $\rightarrow$ Đáp án hiển thị trực tiếp ngay cạnh con trỏ chuột và **Google Chrome vẫn giữ nguyên 100% focus** (không bị tab hay chuyển app).
-* **Mở lại Menu Cài Đặt**: 
-  - Cách 1: Bấm tổ hợp **`Option (⌥) + Command (⌘) + V`** hoặc **`Option (⌥) + Control (⌃) + V`**.
-  - Cách 2: Click đúp vào file **`ViTai.app`** (hoặc click icon ViTai trên Dock) bất kỳ lúc nào để đưa menu Cài đặt lên phía trước.
-  - Cách 3: Chạy lệnh `open ViTai.app --args --settings`.
-
----
-
-> 💡 **Khuyến nghị cho Linux Wayland / Fedora**:
-> Thêm quyền đọc thiết bị chuột cấp Kernel cho user hiện tại:
+### 🐧 Dành cho Linux (Fedora, Ubuntu, Debian, Arch...)
+1. Tải file **`ViTai-Linux-x86_64.tar.gz`** (hoặc `ViTai-v3.3.0-linux-x86_64.tar.gz`).
+2. Giải nén và mở Terminal trong thư mục vừa giải nén:
+   ```bash
+   tar -xvf ViTai-*-linux-x86_64.tar.gz
+   cd ViTai
+   ./ViTai
+   ```
+> 💡 **Mẹo cho người dùng Linux (Wayland / Fedora)**:
+> Để bắt tọa độ chuột và bôi đen mượt mà nhất, hãy cấp quyền thiết bị input một lần duy nhất:
 > ```bash
 > sudo usermod -aG input $USER
 > ```
-> *(Sau đó Đăng xuất và Đăng nhập lại 1 lần)*
+> *(Sau đó đăng xuất và đăng nhập lại máy tính)*.
 
 ---
 
 ## 🎮 Hướng dẫn sử dụng
 
-```mermaid
-flowchart LR
-    A[Bôi đen câu hỏi trắc nghiệm] --> B{Chế độ làm việc}
-    B -->|Phím tắt| C[Nhấn phím tắt / Nút chuột đã gán]
-    B -->|Fast Mode| D[Tự động kích hoạt sau khi nhả chuột]
-    C --> E[Xử lý AI siêu tốc]
-    D --> E
-    E --> F[Chữ cái đáp án A/B/C/D nổi nhẹ ở đuôi câu hỏi]
-    F --> G[Nhấp chuột bất kỳ để ẩn ngay]
-```
+### 1. Lấy đáp án câu hỏi
+1. Dùng chuột **bôi đen toàn bộ câu hỏi và các phương án trả lời** trên trình duyệt hoặc tài liệu.
+2. Nhấn phím tắt kích hoạt (mặc định: **`Alt + Q`** hoặc nút chuột bạn đã gán).
+3. Ký tự đáp án (ví dụ: `A`) sẽ hiện nổi ngay sát đuôi phần bôi đen.
+4. **Nhấp chuột bất kỳ** trên màn hình để ẩn đáp án.
 
-1. **Lấy đáp án trắc nghiệm**:
-   - Dùng chuột bôi đen câu hỏi và các lựa chọn trả lời.
-   - Nhấn phím tắt kích hoạt (mặc định: `Alt + Q` trên Windows/Linux hoặc `Option + Q` trên macOS).
-   - Đáp án (ví dụ: `A`) sẽ hiện ngay sát đuôi phần bôi đen.
-   - Nhấp chuột bất kỳ trên màn hình để ẩn đáp án ngay lập tức.
+> ⚡ **Chế độ Fast Mode (Tự động)**: Bật tính năng này trong cài đặt, ViTai sẽ tự phân tích và hiện đáp án ngay khi bạn vừa nhả chuột bôi đen xong (không cần bấm phím tắt).
 
-2. **Mở Menu Cài Đặt ("Vì Người Tài")**:
-   - Nhấn tổ hợp phím **`Ctrl + Alt + V`** (hoặc **`Option + Cmd + V` / `Option + Ctrl + V`** trên macOS).
-   - **Thẻ Vỏ**: Đổi phím tắt/nút chuột, chọn màu chữ bằng Bảng màu tròn 360°, đổi kích thước chữ, xem trước trên nền Đen/Trắng, bật Fast Mode, Cache.
-   - **Thẻ Lõi**: Lựa chọn Provider AI (Codex, Gemini, Kiro, 9Router, DeepSeek...), chọn Model AI, cấu hình API Key hoặc OAuth.
-   - **Thẻ Quản Trị**: Quản lý tài khoản, xem mật khẩu, reset địa chỉ MAC khi đổi máy tính, cấu hình Cloud Sync Supabase/Firebase.
+### 2. Mở bảng Cài Đặt (Menu)
+* Bấm tổ hợp phím **`Ctrl + Alt + V`** bất kỳ lúc nào để mở bảng điều khiển.
+* **Thẻ Vỏ (Giao diện & Phím tắt)**: 
+  * Bấm vào ô phím tắt để đổi sang phím bất kỳ hoặc gán trực tiếp vào nút chuột (Chuột phải, Chuột giữa, Nút phụ Back/Forward).
+  * Chọn màu chữ hiển thị bằng Bảng màu tròn 360°, đổi cỡ chữ, xem thử trên nền Đen/Trắng.
+  * Bật/tắt chế độ tự động phân tích (Fast Mode) và bộ nhớ đệm (Cache).
+* **Thẻ Lõi (Trí tuệ AI)**: 
+  * Chọn nguồn AI muốn sử dụng: Google Gemini, OpenAI/ChatGPT Codex, Kiro AI, 9Router, DeepSeek...
+  * Nhập API Key hoặc đăng nhập tài khoản OAuth.
+* **Thẻ Quản Trị**: Quản lý thông tin tài khoản, danh sách thành viên và đổi mật khẩu.
 
 ---
 
-## 💳 Quản Trị & Kích Hoạt Tự Động VietQR
+## 👤 Tài khoản & Cơ chế hoạt động
 
-1. **Đăng ký tài khoản tự động (Quét QR 50.000đ)**:
-   - Người dùng mới mở app $\rightarrow$ Nhấn nút **`Đăng Ký Tài Khoản (Quét QR 50.000đ)`** tại màn hình khóa.
-   - Quét mã VietQR chuyển khoản chính xác 50.000đ tới **MBBank (`99924052005 - LE VO THANH NAM`)** với nội dung `VITAIxxxxxx`.
-   - Cổng SePay tự động ghi nhận tiền vào và mở khóa tài khoản tức thì mà không cần duyệt thủ công.
+Ứng dụng sử dụng hệ thống tài khoản để lưu giữ cấu hình cá nhân và đồng bộ dữ liệu an toàn:
 
-2. **Tài khoản Quản Trị Viên (Admin)**:
-   - Tài khoản Admin gốc: `vinguoitai` (Mật khẩu mặc định: `vit24052005`).
-   - Admin có quyền truy cập toàn bộ menu Quản Trị, cấp phát user mới, đổi mật khẩu và reset MAC cho học viên.
+### 1. Kích hoạt tài khoản tự động qua VietQR (50.000đ)
+* Người dùng mới mở app $\rightarrow$ Nhấn nút **`Đăng Ký Tài Khoản (Quét QR 50.000đ)`** tại màn hình khóa.
+* Quét mã VietQR chuyển khoản chính xác 50.000đ tới **MBBank (`99924052005 - LE VO THANH NAM`)** với cú pháp nội dung tự động `VITAIxxxxxx`.
+* Hệ thống tự động xác nhận giao dịch thành công và **mở khóa tài khoản ngay lập tức 24/7** mà không cần chờ duyệt thủ công.
 
----
+### 2. Cơ chế khóa thiết bị (Bảo vệ tài khoản)
+* **Tài khoản người dùng thường**: Sẽ tự động gán và khóa cố định với địa chỉ phần cứng (MAC) của máy tính đăng nhập lần đầu tiên. Điều này giúp bảo mật và tránh chia sẻ tài khoản trái phép.
+* **Khi đổi máy tính mới**: Bạn chỉ cần liên hệ Quản trị viên (Admin) để thực hiện thao tác gỡ khóa (Reset MAC) là có thể đăng nhập trên máy tính mới bình thường.
 
-## 🔨 Build từ mã nguồn
-
-### Yêu cầu môi trường
-- Python 3.10 trở lên
-- `pip install -r requirements.txt`
-
-### Build trên Linux
-```bash
-chmod +x build_linux.sh
-./build_linux.sh
-# File kết quả: dist/ViTai/ViTai và dist/ViTai-v3.2.3-linux-x86_64.tar.gz
-```
-
-### Build trên Windows
-```cmd
-python scripts\build_windows.py
-:: File kết quả: dist\ViTai\ViTai.exe và dist\ViTai-Windows-x64.zip
-```
-
-### Build trên macOS
-```bash
-chmod +x build_mac.sh
-./build_mac.sh
-# File kết quả: dist/ViTai.app và dist/ViTai-v3.2.3-macos-*.tar.gz
-```
+### 3. Tài khoản Quản trị viên (Admin)
+* **Tài khoản Admin gốc**: `vinguoitai` (Mật khẩu mặc định: `vit24052005`).
+* **Đặc quyền Admin**:
+  * Đăng nhập tự do trên mọi máy tính khác nhau (không bị khóa cứng thiết bị).
+  * Toàn quyền truy cập tab **Quản Trị**: Cấp phát tài khoản mới, xóa người dùng, đổi mật khẩu và mở khóa thiết bị (Reset MAC) cho học viên.
 
 ---
 
-## 🧪 Kiểm thử tự động (Unit Tests)
+## ✨ Tính năng cốt lõi
 
-Dự án đi kèm bộ kiểm thử toàn diện với **57+ test cases**:
-
-```bash
-pytest -v
-```
+* 👻 **Ghost Direct Overlay**: Lớp hiển thị trong suốt 100%, không khung nền, không chiếm tiêu điểm chuột hay bàn phím.
+* 🖱️ **Gán phím linh hoạt**: Hỗ trợ mọi tổ hợp bàn phím hoặc nút chuột chuyên dụng.
+* 🎨 **Bảng màu tròn 360°**: Dễ dàng tùy biến màu chữ đáp án tương phản rõ nét trên mọi nền trang web.
+* 💾 **Lưu bền vững**: Giữ nguyên toàn bộ cấu hình, model AI, phím tắt và theme qua các lần sử dụng.
+* 🧠 **Bộ nhớ đệm thông minh**: Trả lời tức thì **0ms** đối với các câu hỏi đã từng giải trước đó.
 
 ---
 
 ## 📄 Bản quyền (License)
 
-Phát hành theo giấy phép [MIT License](LICENSE).
-Tác giả: **Vì Người Tài (ViTai Team)**.
+Phát hành theo giấy phép [MIT License](LICENSE).  
+Phát triển bởi: **Vì Người Tài (ViTai Team)**.

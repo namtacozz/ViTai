@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 
@@ -12,37 +15,33 @@ def main() -> int:
         "-m",
         "PyInstaller",
         "--noconfirm",
-        "--clean",
-        "--windowed",
-        "--name",
-        "ViTai",
-        "--icon",
-        str(root / "assets" / "icon.ico"),
-        "--add-data",
-        f"{root / 'assets' / 'icon.ico'};assets",
+        str(root / "ViTai.spec"),
     ]
-    if (root / "assets" / "logo.png").exists():
-        command.extend(["--add-data", f"{root / 'assets' / 'logo.png'};assets"])
-    command.extend([
-        "--paths",
-        str(root / "src"),
-        str(root / "src" / "vitai" / "main.py"),
-    ])
     ret = subprocess.call(command, cwd=root)
     if ret == 0:
-        import shutil
-        src_docs = root / "docs"
-        dist_docs = root / "dist" / "ViTai" / "docs"
-        if src_docs.exists():
-            if dist_docs.exists():
-                shutil.rmtree(dist_docs)
-            shutil.copytree(src_docs, dist_docs)
-            
+        dist_dir = root / "dist" / "ViTai"
         env_example = root / ".env.example"
-        dist_env = root / "dist" / "ViTai" / ".env"
-        if env_example.exists():
+        dist_env = dist_dir / ".env"
+        if env_example.exists() and dist_dir.exists():
             shutil.copy2(env_example, dist_env)
-            
+
+        readme_file = root / "README.md"
+        if readme_file.exists() and dist_dir.exists():
+            shutil.copy2(readme_file, dist_dir / "README.md")
+
+        dist_root = root / "dist"
+        version = os.environ.get("GITHUB_REF_NAME", os.environ.get("VERSION", "v3.3.0"))
+        zip_path = dist_root / f"ViTai-{version}-windows-x64.zip"
+        zip_generic = dist_root / "ViTai-Windows-x64.zip"
+
+        if dist_dir.exists():
+            print(f"📦 Tạo file nén Release Windows ({version})...")
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for file_path in dist_dir.rglob("*"):
+                    zf.write(file_path, file_path.relative_to(dist_root))
+            shutil.copy2(zip_path, zip_generic)
+            print(f"🎁 File Release: {zip_path}")
+
     return ret
 
 

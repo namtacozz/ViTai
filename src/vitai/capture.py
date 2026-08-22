@@ -51,6 +51,9 @@ if sys.platform == "win32":
             _keyboard_input(VK_C, KEYEVENTF_KEYUP), _keyboard_input(VK_CONTROL, KEYEVENTF_KEYUP),
         )
         ctypes.windll.user32.SendInput(len(inputs), ctypes.byref(inputs), ctypes.sizeof(INPUT))
+else:
+    def _send_ctrl_c_windows() -> None:
+        pass
 
 
 def _is_wayland() -> bool:
@@ -127,29 +130,8 @@ def _simulate_ctrl_c_ydotool() -> bool:
         return False
 
 
-def _get_selected_text_macos_ax() -> str | None:
-    """Đọc trực tiếp văn bản bôi đen qua macOS Accessibility API (0ms, không dùng clipboard, không chuyển cửa sổ)."""
-    try:
-        import ApplicationServices
-        sys_wide = ApplicationServices.AXUIElementCreateSystemWide()
-        err, focused_elem = ApplicationServices.AXUIElementCopyAttributeValue(
-            sys_wide, "AXFocusedUIElement", None
-        )
-        if err == 0 and focused_elem:
-            err, selected_text = ApplicationServices.AXUIElementCopyAttributeValue(
-                focused_elem, "AXSelectedText", None
-            )
-            if err == 0 and selected_text and str(selected_text).strip():
-                text_str = str(selected_text).strip()
-                _log.info(f"[CAPTURE] ✅ macOS Accessibility trực tiếp OK ({len(text_str)} chars): '{text_str[:60]}...'")
-                return text_str
-    except Exception as e:
-        _log.warning(f"[CAPTURE] AXUIElement: {e}")
-    return None
-
-
 def _simulate_ctrl_c_pynput() -> bool:
-    """Giả lập Ctrl+C / Cmd+C bằng pynput."""
+    """Giả lập Ctrl+C bằng pynput."""
     try:
         from pynput.keyboard import Controller, Key
         kb = Controller()
@@ -158,150 +140,27 @@ def _simulate_ctrl_c_pynput() -> bool:
                 kb.release(k)
             except Exception:
                 pass
-        if sys.platform == "darwin":
-            for k in [Key.cmd, getattr(Key, "cmd_l", Key.cmd), getattr(Key, "cmd_r", Key.cmd)]:
-                try:
-                    kb.release(k)
-                except Exception:
-                    pass
         time.sleep(0.04)
-        cmd_key = Key.cmd if sys.platform == "darwin" else Key.ctrl
-        with kb.pressed(cmd_key):
+        with kb.pressed(Key.ctrl):
             kb.tap('c')
-        _log.info("[CAPTURE] pynput Cmd+C/Ctrl+C đã gửi.")
+        _log.info("[CAPTURE] pynput Ctrl+C đã gửi.")
         return True
     except Exception as e:
-        _log.warning(f"[CAPTURE] pynput Cmd+C/Ctrl+C lỗi: {e}")
+        _log.warning(f"[CAPTURE] pynput Ctrl+C lỗi: {e}")
         return False
-
-
-def _simulate_cmd_c_macos_silent() -> bool:
-    """Giả lập Cmd+C hướng tới ứng dụng đang active mà không kích hoạt Terminal."""
-    try:
-        import AppKit
-        script_src = '''
-        tell application "System Events"
-            set frontApp to first application process whose frontmost is true
-            tell frontApp to keystroke "c" using command down
-        end tell
-        '''
-        script = AppKit.NSAppleScript.alloc().initWithSource_(script_src)
-        if script:
-            script.executeAndReturnError_(None)
-            _log.info("[CAPTURE] NSAppleScript silent Cmd+C đã gửi.")
-            return True
-    except Exception:
-        pass
-
-    try:
-        res = subprocess.run(
-            ["osascript", "-e", 'tell application "System Events" to tell (first application process whose frontmost is true) to keystroke "c" using command down'],
-            capture_output=True,
-            text=True,
-            timeout=1,
-        )
-        return res.returncode == 0
-    except Exception as e:
-        _log.warning(f"[CAPTURE] osascript silent Cmd+C lỗi: {e}")
-        return False
-
-
-def _read_clipboard_macos() -> str | None:
-    """Đọc clipboard trên macOS (hỗ trợ pbpaste và pyperclip)."""
-    try:
-        import pyperclip
-        text = pyperclip.paste()
-        if text and text.strip():
-            return text.strip()
-    except Exception:
-        pass
-
-    try:
-        res = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout.strip():
-            return res.stdout.strip()
-    except Exception:
-        pass
-    return None
-
-
-def _get_selected_text_macos() -> str | None:
-    """Bắt text bôi đen trên macOS (Ưu tiên Accessibility -> Native Quartz CGEvent -> pynput -> AppleScript)."""
-    _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen...")
-    
-    # 1. Thử đọc trực tiếp qua macOS Accessibility API (Google Chrome / Safari / Notes hỗ trợ 100%, 0ms, không đổi tab)
-    ax_text = _get_selected_text_macos_ax()
-    if ax_text:
-        return ax_text
-
-    # 2. Fallback qua Cmd+C
-    try:
-        import pyperclip
-        original_clip = ""
-        try:
-            original_clip = pyperclip.paste()
-        except Exception:
-            pass
-
-        try:
-            pyperclip.copy("")
-        except Exception:
-            pass
-
-        # 2a. Gửi Cmd+C qua native Quartz CoreGraphics (nhanh, chuẩn cờ Command, không đổi tab)
-        from vitai.darwin_compat import send_cmd_c_macos
-        if send_cmd_c_macos():
-            for _ in range(4):
-                time.sleep(0.04)
-                selected = _read_clipboard_macos()
-                if selected and selected != original_clip:
-                    _log.info(f"[CAPTURE] ✅ macOS Quartz CGEvent Cmd+C thành công: '{selected[:80]}'")
-                    return selected
-
-        # 2b. Gửi Cmd+C qua pynput
-        _simulate_ctrl_c_pynput()
-        for _ in range(3):
-            time.sleep(0.06)
-            selected = _read_clipboard_macos()
-            if selected and selected != original_clip:
-                _log.info(f"[CAPTURE] ✅ macOS pynput thành công: '{selected[:80]}'")
-                return selected
-
-        # 2c. Fallback gửi Cmd+C qua silent in-process AppleScript
-        _log.info("[CAPTURE] Thử fallback qua silent AppleScript...")
-        _simulate_cmd_c_macos_silent()
-        for _ in range(3):
-            time.sleep(0.06)
-            selected = _read_clipboard_macos()
-            if selected and selected != original_clip:
-                _log.info(f"[CAPTURE] ✅ macOS Silent AppleScript thành công: '{selected[:80]}'")
-                return selected
-
-        # Khôi phục lại clipboard cũ nếu không lấy được text mới
-        if original_clip:
-            try:
-                pyperclip.copy(original_clip)
-            except Exception:
-                pass
-    except Exception as e:
-        _log.error(f"[CAPTURE] macOS lỗi: {e}")
-
-    _log.warning("[CAPTURE] ❌ Không thể đọc text bôi đen trên macOS.")
-    return None
 
 
 def get_selected_text(delay: float = 0.05) -> str | None:
     """Lấy text đang bôi đen.
     
     Chiến lược:
-    1. Linux Wayland: Đọc PRIMARY selection trực tiếp (không cần Ctrl+C)
-    2. macOS: Giả lập Cmd+C bằng pynput / osascript và đọc clipboard (pbpaste / pyperclip)
-    3. Windows: Giả lập Ctrl+C bằng Win32 API
-    4. Linux X11: Đọc PRIMARY selection, hoặc giả lập Ctrl+C
+    1. Linux Wayland: Đọc PRIMARY selection trực tiếp (không cần Ctrl+C), fallback ydotool + clipboard
+    2. Windows: Giả lập Ctrl+C bằng Win32 API
+    3. Linux X11: Đọc PRIMARY selection, hoặc giả lập Ctrl+C qua pynput
     """
     _log.info(f"[CAPTURE] === Bắt đầu get_selected_text === (wayland={_is_wayland()}, platform={sys.platform})")
 
-    # --- WAYLAND ---
+    # --- WAYLAND (Fedora / Ubuntu) ---
     if _is_wayland():
         _log.info("[CAPTURE] Wayland: Đọc PRIMARY selection (wl-paste --primary)...")
         text = _read_primary_selection_wayland()
@@ -325,10 +184,6 @@ def get_selected_text(delay: float = 0.05) -> str | None:
 
         _log.warning("[CAPTURE] ❌ Không thể đọc text bôi đen trên Wayland.")
         return None
-
-    # --- MACOS ---
-    if sys.platform == "darwin":
-        return _get_selected_text_macos()
 
     # --- WINDOWS ---
     if sys.platform == "win32":
@@ -371,4 +226,3 @@ def get_selected_text(delay: float = 0.05) -> str | None:
 
     _log.warning("[CAPTURE] ❌ Không thể đọc text trên X11.")
     return None
-

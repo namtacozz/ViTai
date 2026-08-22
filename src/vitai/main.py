@@ -9,15 +9,6 @@ import traceback
 from dataclasses import replace
 from pathlib import Path
 
-from vitai.darwin_compat import (
-    bring_window_to_front,
-    ensure_darwin_compat,
-    set_darwin_activation_policy,
-    setup_macos_dock_reopen_handler,
-)
-
-ensure_darwin_compat()
-
 try:
     from pynput import mouse
 except Exception:
@@ -138,12 +129,7 @@ class ViTaiApp:
         self.selection_anchor: tuple[int, int] | None = None
         self.mouse_listener: mouse.Listener | None = None
 
-        # 0. Yêu cầu quyền Accessibility trên macOS
-        if sys.platform == "darwin":
-            from vitai.darwin_compat import check_and_request_macos_accessibility
-            check_and_request_macos_accessibility()
-
-        # 1. Hotkey Answer Trigger (Mặc định: Alt + Q / Option + Q)
+        # 1. Hotkey Answer Trigger (Mặc định: Alt + Q)
         self.hotkey_manager = HotkeyManager(
             self.config.hotkey_modifier,
             self.config.hotkey_key,
@@ -151,7 +137,7 @@ class ViTaiApp:
             backend=self.config.hotkey_backend,
         )
 
-        # 2. Hotkey Menu Settings (Option + Cmd + V / Option + Ctrl + V / Ctrl + Alt + V)
+        # 2. Hotkey Menu Settings (Mặc định: Ctrl + Alt + V)
         self.menu_hotkey_manager = HotkeyManager(
             "ctrl+alt",
             "v",
@@ -159,22 +145,18 @@ class ViTaiApp:
             backend=self.config.hotkey_backend,
         )
         
-        # 3. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME & macOS)
+        # 3. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME & Windows)
         self.ipc_server = IpcServer(self._emit_hotkey, on_menu_callback=self._emit_menu_hotkey)
         self.ipc_server.start()
         register_gnome_hotkey(self.config.hotkey_modifier, self.config.hotkey_key)
         register_gnome_menu_hotkey("ctrl+alt", "v")
 
-        # 4. macOS Dock click / Double click reopen hook
-        if sys.platform == "darwin":
-            setup_macos_dock_reopen_handler(self._emit_menu_hotkey)
-
-        # 5. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
+        # 4. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
         self.watcher = SelectionWatcher(self._start_answer_request)
         self.watcher.start()
         self.watcher.set_enabled(self.config.auto_translate)
 
-        # 6. Kernel Mouse Tracker (cho Wayland/Linux)
+        # 5. Kernel Mouse Tracker (cho Wayland/Linux)
         register_click_callback(self._on_kernel_mouse_click)
         start_mouse_tracker()
 
@@ -285,7 +267,6 @@ class ViTaiApp:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
-            self.settings_window.window_hidden.connect(lambda: set_darwin_activation_policy(True))
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
@@ -294,10 +275,8 @@ class ViTaiApp:
             if hasattr(self.settings_window, "_maybe_confirm_close"):
                 if self.settings_window._maybe_confirm_close():
                     self.settings_window.hide()
-                    set_darwin_activation_policy(True)
             else:
                 self.settings_window.hide()
-                set_darwin_activation_policy(True)
         else:
             self.show_settings()
 
@@ -307,11 +286,12 @@ class ViTaiApp:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
-            self.settings_window.window_hidden.connect(lambda: set_darwin_activation_policy(True))
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
-        bring_window_to_front(self.settings_window)
+        self.settings_window.show()
+        self.settings_window.raise_()
+        self.settings_window.activateWindow()
 
     def _on_config_changed(self, new_config: AppConfig) -> None:
         old_config = self.config

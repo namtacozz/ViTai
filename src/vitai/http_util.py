@@ -21,7 +21,7 @@ def get_safe_ssl_context() -> ssl.SSLContext:
 
 
 def safe_urlopen(req: urllib.request.Request | str, timeout: float = 10.0, **kwargs: Any) -> Any:
-    """Mở URL an toàn, tự động thử lại với unverified context nếu macOS gặp lỗi SSL CERTIFICATE_VERIFY_FAILED."""
+    """Mở URL an toàn, tự động thử lại với unverified context nếu gặp lỗi SSL CERTIFICATE_VERIFY_FAILED."""
     ctx = kwargs.pop("context", None) or get_safe_ssl_context()
     try:
         return urllib.request.urlopen(req, timeout=timeout, context=ctx, **kwargs)

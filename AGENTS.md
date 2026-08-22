@@ -16,8 +16,8 @@
 ---
 
 ## 2. Giao Diện & Trải Nghiệm Người Dùng (UI / UX Standards)
-- **Giao diện thuần text sạch sẽ (Linux / macOS / Windows)**:
-  - Hạn chế tối đa việc nhúng các biểu tượng emoji/icon không tương thích lên font chữ hệ thống Linux/macOS.
+- **Giao diện thuần text sạch sẽ (Linux / Windows)**:
+  - Hạn chế tối đa việc nhúng các biểu tượng emoji/icon không tương thích lên font chữ hệ thống Linux/Windows.
   - Sử dụng văn bản rõ ràng, súc tích, giao diện tối giản tinh tế (Dark mode carbon & Warm amber).
 - **Phím tắt kích hoạt & Phím chuột**:
   - Gộp chung phím bàn phím và nút chuột vào 1 nút duy nhất.

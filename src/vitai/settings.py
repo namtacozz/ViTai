@@ -1090,10 +1090,10 @@ class HotkeyInputButton(QPushButton):
         formatted = []
         for p in parts:
             p_norm = p.strip().lower()
-            if p_norm in ("cmd", "command", "super", "win", "meta"):
-                formatted.append("Cmd" if sys.platform == "darwin" else "Win")
+            if p_norm in ("win", "cmd", "super", "meta"):
+                formatted.append("Win")
             elif p_norm in ("alt", "opt", "option"):
-                formatted.append("Opt" if sys.platform == "darwin" else "Alt")
+                formatted.append("Alt")
             elif p_norm in ("ctrl", "control"):
                 formatted.append("Ctrl")
             elif p_norm in ("shift",):
@@ -1121,7 +1121,7 @@ class HotkeyInputButton(QPushButton):
 
         modifiers = []
         if e.modifiers() & Qt.KeyboardModifier.MetaModifier:
-            modifiers.append("cmd")
+            modifiers.append("win")
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
             modifiers.append("ctrl")
         if e.modifiers() & Qt.KeyboardModifier.AltModifier:
@@ -1167,7 +1167,7 @@ class HotkeyInputButton(QPushButton):
             ("Alt + Chuột Phải", "alt", "mouse_right"),
             ("Ctrl + Chuột Phải", "ctrl", "mouse_right"),
             ("Shift + Chuột Phải", "shift", "mouse_right"),
-            ("Cmd + Chuột Phải" if sys.platform == "darwin" else "Win + Chuột Phải", "cmd", "mouse_right"),
+            ("Win + Chuột Phải", "win", "mouse_right"),
         ]
         for label, mod, k in presets:
             action = menu.addAction(label)
@@ -1202,7 +1202,7 @@ class HotkeyInputButton(QPushButton):
 
         modifiers = []
         if a0.modifiers() & Qt.KeyboardModifier.MetaModifier:
-            modifiers.append("cmd")
+            modifiers.append("win")
         if a0.modifiers() & Qt.KeyboardModifier.ControlModifier:
             modifiers.append("ctrl")
         if a0.modifiers() & Qt.KeyboardModifier.AltModifier:
@@ -1211,7 +1211,7 @@ class HotkeyInputButton(QPushButton):
             modifiers.append("shift")
 
         if not modifiers:
-            modifiers.append("cmd" if sys.platform == "darwin" else "alt")
+            modifiers.append("alt")
 
         if 65 <= key_code <= 90:
             key_char = chr(key_code).lower()
@@ -1223,14 +1223,7 @@ class HotkeyInputButton(QPushButton):
             key_char = "space"
         else:
             text = a0.text().lower()
-            opt_map = {
-                "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
-                "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
-                "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
-            }
-            if text in opt_map:
-                key_char = opt_map[text]
-            elif text and text.isalnum():
+            if text and text.isalnum():
                 key_char = text
             else:
                 key_char = "q"
