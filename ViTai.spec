@@ -48,6 +48,8 @@ exe = EXE(
     entitlements_file=None,
     icon=['assets/icon.ico'],
 )
+import sys
+
 coll = COLLECT(
     exe,
     a.binaries,
@@ -57,3 +59,21 @@ coll = COLLECT(
     upx_exclude=[],
     name='ViTai',
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='ViTai.app',
+        icon='assets/icon.ico',
+        bundle_identifier='com.vitai.app',
+        info_plist={
+            'CFBundleName': 'ViTai',
+            'CFBundleDisplayName': 'Vì Người Tài',
+            'CFBundleIdentifier': 'com.vitai.app',
+            'CFBundleVersion': '3.1.5',
+            'CFBundleShortVersionString': '3.1.5',
+            'NSHighResolutionCapable': 'True',
+            'LSUIElement': '1',
+            'NSRequiresAquaSystemAppearance': 'False',
+        },
+    )

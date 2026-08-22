@@ -127,6 +127,30 @@ def _simulate_ctrl_c_ydotool() -> bool:
         return False
 
 
+def _simulate_cmd_c_macos_quartz() -> bool:
+    """Giả lập Cmd+C trên macOS bằng Quartz Native Event Tap (không chiếm focus, tốc độ tức thì)."""
+    try:
+        from Quartz import (
+            CGEventCreateKeyboardEvent,
+            CGEventSetFlags,
+            CGEventPost,
+            kCGHIDEventTap,
+            kCGEventFlagMaskCommand,
+        )
+        # Mã phím ảo của ký tự 'C' trên macOS là 8
+        event_down = CGEventCreateKeyboardEvent(None, 8, True)
+        CGEventSetFlags(event_down, kCGEventFlagMaskCommand)
+        event_up = CGEventCreateKeyboardEvent(None, 8, False)
+        CGEventSetFlags(event_up, kCGEventFlagMaskCommand)
+        CGEventPost(kCGHIDEventTap, event_down)
+        CGEventPost(kCGHIDEventTap, event_up)
+        _log.info("[CAPTURE] Quartz Cmd+C native đã gửi.")
+        return True
+    except Exception as e:
+        _log.warning(f"[CAPTURE] Quartz Cmd+C lỗi: {e}")
+        return False
+
+
 def _simulate_ctrl_c_pynput() -> bool:
     """Giả lập Ctrl+C bằng pynput (chỉ hoạt động trên X11 / Windows / macOS)."""
     try:
@@ -187,7 +211,7 @@ def _read_clipboard_macos() -> str | None:
 
 
 def _get_selected_text_macos() -> str | None:
-    """Bắt text bôi đen trên macOS bằng Cmd+C (pynput + fallback osascript)."""
+    """Bắt text bôi đen trên macOS bằng Cmd+C (Ưu tiên Quartz -> pynput -> AppleScript)."""
     _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen qua Cmd+C...")
     try:
         import pyperclip
@@ -202,16 +226,18 @@ def _get_selected_text_macos() -> str | None:
         except Exception:
             pass
 
-        # 1. Thử gửi Cmd+C qua pynput
-        success = _simulate_ctrl_c_pynput()
-        time.sleep(0.12)
+        # 1. Thử gửi Cmd+C trực tiếp qua Quartz C API (giữ nguyên cửa sổ Google Chrome, không đổi focus)
+        success = _simulate_cmd_c_macos_quartz()
+        if not success:
+            success = _simulate_ctrl_c_pynput()
+        time.sleep(0.08)
         selected = _read_clipboard_macos()
 
         # 2. Nếu chưa đọc được, thử fallback qua osascript AppleScript
         if not selected:
-            _log.info("[CAPTURE] pynput chưa bắt được text trên macOS, thử fallback AppleScript...")
+            _log.info("[CAPTURE] Quartz/pynput chưa bắt được text trên macOS, thử fallback AppleScript...")
             if _simulate_cmd_c_macos_applescript():
-                time.sleep(0.12)
+                time.sleep(0.1)
                 selected = _read_clipboard_macos()
 
         if selected:

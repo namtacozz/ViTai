@@ -56,16 +56,16 @@ Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và t�
 
 * 🪟 **Windows (10 / 11)**: Tải `ViTai-Windows-x64.zip` $\rightarrow$ Giải nén $\rightarrow$ Chạy `ViTai.exe`.
 * 🐧 **Linux (Fedora / Ubuntu / Arch)**: Tải `ViTai-Linux-x86_64.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy `./ViTai`.
-* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-*-macos-*.tar.gz` $\rightarrow$ Xem hướng dẫn cấu hình macOS bên dưới.
+* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-*-macos-*.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy **`ViTai.app`** trực tiếp (không mở cửa sổ Terminal).
 
 ---
 
-### 🍎 Hướng dẫn chi tiết cho macOS (Gatekeeper & Trợ năng)
+### 🍎 Hướng dẫn chi tiết cho macOS (Mở trực tiếp ViTai.app & Cấp quyền)
 
-Do cơ chế bảo mật **Gatekeeper** của macOS tự động chặn các ứng dụng tải về từ internet chưa đăng ký chứng chỉ trả phí của Apple, bạn chỉ cần thực hiện các bước sau:
+Bản build mới tự động tạo gói ứng dụng chuẩn macOS **`ViTai.app`** chạy ngầm mượt mà (không bật cửa sổ Terminal, không bị giật hay nhảy tab ra khỏi Google Chrome):
 
-#### 1. Gỡ chặn kiểm duyệt Gatekeeper & Ký xác minh
-Mở ứng dụng **Terminal** trên macOS và chạy các dòng lệnh sau:
+#### 1. Gỡ chặn kiểm duyệt Gatekeeper & Ký xác minh (Chỉ làm 1 lần đầu)
+Mở ứng dụng **Terminal** trên macOS và chạy:
 
 ```bash
 # 1. Đi vào thư mục Tải về
@@ -82,13 +82,14 @@ codesign -fs - ViTai*
 #### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt
 Để ViTai có thể bắt phím tắt toàn cục và tự động trích xuất nội dung bôi đen:
 1. Vào **Cài đặt hệ thống** (*System Settings*) $\rightarrow$ **Quyền riêng tư & Bảo mật** (*Privacy & Security*).
-2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **Terminal** (hoặc file **ViTai**).
-3. Vào mục **Giám sát đầu vào** (*Input Monitoring*) $\rightarrow$ Bật công tắc xanh cho **Terminal** (hoặc file **ViTai**).
+2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal** nếu chạy lệnh).
+3. Vào mục **Giám sát đầu vào** (*Input Monitoring*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal**).
 
-#### 3. Phím tắt & Mở Cài Đặt trên macOS
-* **Mở bảng Cài Đặt**: Chạy lệnh `./ViTai --settings` hoặc `./ViTai --menu`.
-* **Phím kích hoạt giải đề (`Alt + Q`)**: Bấm tổ hợp **`Option (⌥) + Q`**.
+#### 3. Khởi chạy & Sử dụng
+* **Chạy ứng dụng trực tiếp**: Click đúp vào **`ViTai.app`** (hoặc gõ `open ViTai.app` trong Terminal). Ứng dụng sẽ chạy ngầm độc lập hoàn toàn, **không hiện cửa sổ Terminal**.
+* **Phím kích hoạt giải đề (`Alt + Q`)**: Bôi đen câu hỏi trong Google Chrome rồi bấm **`Option (⌥) + Q`** $\rightarrow$ Đáp án hiển thị trực tiếp ngay cạnh vùng bôi đen và **giữ nguyên cửa sổ Google Chrome** (không bị chuyển focus hay tab đi nơi khác).
 * **Phím tắt mở Cài Đặt (`Ctrl + Alt + V`)**: Bấm tổ hợp **`Control (⌃) + Option (⌥) + V`**.
+* **Hoặc mở cài đặt từ dòng lệnh**: `./ViTai --settings` hoặc `open ViTai.app --args --settings`.
 
 ---
 

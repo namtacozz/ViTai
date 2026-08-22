@@ -49,6 +49,8 @@ class AnswerOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        if hasattr(Qt.WidgetAttribute, "WA_X11DoNotAcceptFocus"):
+            self.setAttribute(Qt.WidgetAttribute.WA_X11DoNotAcceptFocus, True)
         self.setStyleSheet("background: transparent; border: none;")
 
         self._build_ui()
@@ -117,7 +119,8 @@ class AnswerOverlay(QWidget):
         else:
             self._move_to_anchor()
         self.show()
-        self.raise_()
+        if sys.platform != "darwin":
+            self.raise_()
 
     def _move_to_anchor(self) -> None:
         screen = QApplication.primaryScreen()
