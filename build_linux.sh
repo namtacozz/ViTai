@@ -22,7 +22,7 @@ echo "📋 Sao chép tài nguyên kèm theo..."
 cp .env.example dist/ViTai/.env 2>/dev/null || true
 cp README.md dist/ViTai/ 2>/dev/null || true
 
-VERSION="${GITHUB_REF_NAME:-${VERSION:-v3.1.1}}"
+VERSION="${GITHUB_REF_NAME:-${VERSION:-v3.2.3}}"
 echo "📦 Tạo file nén Release ($VERSION)..."
 cd dist
 tar -czvf "ViTai-${VERSION}-linux-x86_64.tar.gz" ViTai

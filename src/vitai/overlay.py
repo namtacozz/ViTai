@@ -31,7 +31,7 @@ class AnswerOverlay(QWidget):
         self._anchor = QPoint(0, 0)
 
         # Cửa sổ hoàn toàn trong suốt, không viền, luôn nổi trên cùng mọi ứng dụng (Ghost Overlay)
-        # Sử dụng Tool | WindowStaysOnTopHint | WindowTransparentForInput
+        # Sử dụng Tool | WindowStaysOnTopHint | WindowTransparentForInput | ToolTip
         # để đảm bảo hiển thị nổi lập tức trên toàn màn hình và không bao giờ xuất hiện trong Alt+Tab / Cmd+Tab
         flags = (
             Qt.WindowType.FramelessWindowHint
@@ -39,6 +39,7 @@ class AnswerOverlay(QWidget):
             | Qt.WindowType.WindowDoesNotAcceptFocus
             | Qt.WindowType.Tool
             | Qt.WindowType.WindowTransparentForInput
+            | Qt.WindowType.ToolTip
         )
         if sys.platform != "darwin":
             flags |= Qt.WindowType.BypassWindowManagerHint
@@ -55,6 +56,10 @@ class AnswerOverlay(QWidget):
 
         self._build_ui()
         self.set_answer(text)
+
+        if sys.platform == "darwin":
+            from vitai.darwin_compat import setup_macos_ghost_window
+            setup_macos_ghost_window(self)
 
         if timeout_ms > 0:
             QTimer.singleShot(timeout_ms, self.hide_overlay)
@@ -119,7 +124,11 @@ class AnswerOverlay(QWidget):
         else:
             self._move_to_anchor()
         self.show()
-        self.raise_()
+        if sys.platform == "darwin":
+            from vitai.darwin_compat import order_front_regardless
+            order_front_regardless(self)
+        else:
+            self.raise_()
 
     def _move_to_anchor(self) -> None:
         screen = QApplication.primaryScreen()

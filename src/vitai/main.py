@@ -9,7 +9,12 @@ import traceback
 from dataclasses import replace
 from pathlib import Path
 
-from vitai.darwin_compat import ensure_darwin_compat, set_darwin_activation_policy
+from vitai.darwin_compat import (
+    bring_window_to_front,
+    ensure_darwin_compat,
+    set_darwin_activation_policy,
+    setup_macos_dock_reopen_handler,
+)
 
 ensure_darwin_compat()
 
@@ -17,7 +22,7 @@ try:
     from pynput import mouse
 except Exception:
     mouse = None  # type: ignore
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, pyqtSignal
 from PyQt6.QtGui import QAction, QCursor, QIcon
 from PyQt6.QtWidgets import QApplication, QInputDialog
 
@@ -69,6 +74,15 @@ def set_windows_app_id() -> None:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ViTai.App")
 
 
+class ViTaiQApplication(QApplication):
+    reopen_requested = pyqtSignal()
+
+    def event(self, e: QEvent) -> bool:
+        if e.type() in (QEvent.Type.ApplicationActivate, QEvent.Type.FileOpen):
+            self.reopen_requested.emit()
+        return super().event(e)
+
+
 class UiBridge(QObject):
     hotkey_pressed = pyqtSignal()
     menu_hotkey_pressed = pyqtSignal()
@@ -99,16 +113,17 @@ class ViTaiApp:
         if sys.platform.startswith("linux") and "QT_QPA_PLATFORM" not in os.environ:
             os.environ["QT_QPA_PLATFORM"] = "xcb"
 
-        self.qt_app = QApplication(sys.argv)
+        self.qt_app = ViTaiQApplication(sys.argv)
         self.qt_app.setApplicationName("Vì Người Tài")
         self.qt_app.setApplicationDisplayName("Vì Người Tài")
         self.qt_app.setDesktopFileName("vitai")
         self.qt_app.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         self.qt_app.setQuitOnLastWindowClosed(False)
+        self.qt_app.reopen_requested.connect(self.show_settings)
 
         self.bridge = UiBridge()
         self.bridge.hotkey_pressed.connect(self.handle_hotkey)
-        self.bridge.menu_hotkey_pressed.connect(self.toggle_settings)
+        self.bridge.menu_hotkey_pressed.connect(self.show_settings)
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_overlay_if_outside_ready.connect(self.hide_overlay_if_outside)
 
@@ -123,7 +138,7 @@ class ViTaiApp:
         self.selection_anchor: tuple[int, int] | None = None
         self.mouse_listener: mouse.Listener | None = None
 
-        # 1. Hotkey Answer Trigger qua pynput (hoạt động tốt trên Windows/X11)
+        # 1. Hotkey Answer Trigger qua pynput (hoạt động tốt trên macOS/Windows/X11)
         self.hotkey_manager = HotkeyManager(
             self.config.hotkey_modifier,
             self.config.hotkey_key,
@@ -131,7 +146,7 @@ class ViTaiApp:
             backend=self.config.hotkey_backend,
         )
 
-        # 2. Hotkey Menu Settings (Ctrl + Alt + V) để bật/tắt cửa sổ menu hoàn toàn ẩn tàng
+        # 2. Hotkey Menu Settings (Option + Cmd + V / Option + Ctrl + V / Ctrl + Alt + V)
         self.menu_hotkey_manager = HotkeyManager(
             "ctrl+alt",
             "v",
@@ -139,25 +154,29 @@ class ViTaiApp:
             backend=self.config.hotkey_backend,
         )
         
-        # 3. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME)
+        # 3. IPC Server & GNOME Global Shortcuts (cho Linux Wayland/GNOME & macOS)
         self.ipc_server = IpcServer(self._emit_hotkey, on_menu_callback=self._emit_menu_hotkey)
         self.ipc_server.start()
         register_gnome_hotkey(self.config.hotkey_modifier, self.config.hotkey_key)
         register_gnome_menu_hotkey("ctrl+alt", "v")
 
-        # 4. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
+        # 4. macOS Dock click / Double click reopen hook
+        if sys.platform == "darwin":
+            setup_macos_dock_reopen_handler(self._emit_menu_hotkey)
+
+        # 5. Selection Watcher cho Fast Mode (bôi đen tự động trên Wayland/Linux)
         self.watcher = SelectionWatcher(self._start_answer_request)
         self.watcher.start()
         self.watcher.set_enabled(self.config.auto_translate)
 
-        # 5. Kernel Mouse Tracker (cho Wayland/Linux)
+        # 6. Kernel Mouse Tracker (cho Wayland/Linux)
         register_click_callback(self._on_kernel_mouse_click)
         start_mouse_tracker()
 
-        # 6. Background proactive OAuth token refresher
+        # 7. Background proactive OAuth token refresher
         self._start_token_refresh_timer()
 
-        # 7. Local AI Proxy Server (OpenAI-compatible & Subs Router on port 14555)
+        # 8. Local AI Proxy Server (OpenAI-compatible & Subs Router on port 14555)
         from vitai.proxy import get_local_proxy
         self.local_proxy = get_local_proxy()
         self.local_proxy.start()
@@ -261,6 +280,7 @@ class ViTaiApp:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
+            self.settings_window.window_hidden.connect(lambda: set_darwin_activation_policy(True))
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
@@ -274,10 +294,7 @@ class ViTaiApp:
                 self.settings_window.hide()
                 set_darwin_activation_policy(True)
         else:
-            set_darwin_activation_policy(False)
-            self.settings_window.show()
-            self.settings_window.raise_()
-            self.settings_window.activateWindow()
+            self.show_settings()
 
     def show_settings(self) -> None:
         from vitai.user_store import get_current_session
@@ -289,10 +306,7 @@ class ViTaiApp:
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
-        set_darwin_activation_policy(False)
-        self.settings_window.show()
-        self.settings_window.raise_()
-        self.settings_window.activateWindow()
+        bring_window_to_front(self.settings_window)
 
     def _on_config_changed(self, new_config: AppConfig) -> None:
         old_config = self.config

@@ -226,7 +226,7 @@ def _read_clipboard_macos() -> str | None:
 
 
 def _get_selected_text_macos() -> str | None:
-    """Bắt text bôi đen trên macOS (Ưu tiên Accessibility -> pynput -> Silent AppleScript)."""
+    """Bắt text bôi đen trên macOS (Ưu tiên Accessibility -> Native Quartz CGEvent -> pynput -> AppleScript)."""
     _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen...")
     
     # 1. Thử đọc trực tiếp qua macOS Accessibility API (Google Chrome / Safari / Notes hỗ trợ 100%, 0ms, không đổi tab)
@@ -234,7 +234,7 @@ def _get_selected_text_macos() -> str | None:
     if ax_text:
         return ax_text
 
-    # 2. Fallback qua Cmd+C nếu element không hỗ trợ AXSelectedText
+    # 2. Fallback qua Cmd+C
     try:
         import pyperclip
         original_clip = ""
@@ -248,22 +248,32 @@ def _get_selected_text_macos() -> str | None:
         except Exception:
             pass
 
-        # Gửi Cmd+C qua pynput
+        # 2a. Gửi Cmd+C qua native Quartz CoreGraphics (nhanh, chuẩn cờ Command, không đổi tab)
+        from vitai.darwin_compat import send_cmd_c_macos
+        if send_cmd_c_macos():
+            for _ in range(4):
+                time.sleep(0.04)
+                selected = _read_clipboard_macos()
+                if selected and selected != original_clip:
+                    _log.info(f"[CAPTURE] ✅ macOS Quartz CGEvent Cmd+C thành công: '{selected[:80]}'")
+                    return selected
+
+        # 2b. Gửi Cmd+C qua pynput
         _simulate_ctrl_c_pynput()
         for _ in range(3):
             time.sleep(0.06)
             selected = _read_clipboard_macos()
-            if selected:
+            if selected and selected != original_clip:
                 _log.info(f"[CAPTURE] ✅ macOS pynput thành công: '{selected[:80]}'")
                 return selected
 
-        # Fallback gửi Cmd+C qua silent in-process AppleScript
+        # 2c. Fallback gửi Cmd+C qua silent in-process AppleScript
         _log.info("[CAPTURE] Thử fallback qua silent AppleScript...")
         _simulate_cmd_c_macos_silent()
         for _ in range(3):
             time.sleep(0.06)
             selected = _read_clipboard_macos()
-            if selected:
+            if selected and selected != original_clip:
                 _log.info(f"[CAPTURE] ✅ macOS Silent AppleScript thành công: '{selected[:80]}'")
                 return selected
 

@@ -122,36 +122,7 @@ class _PynputHotkeyBackend:
 
     def _canonical(self, key) -> str:
         if keyboard is not None:
-            if isinstance(key, keyboard.KeyCode):
-                # Trên macOS, khi giữ Option (⌥), ký tự phát ra bị chuyển thành ký tự đặc biệt (Option+Q -> 'œ', Option+V -> '√').
-                # Ưu tiên tra cứu theo mã phím phần cứng (Virtual Keycode) để nhận diện chính xác 100%.
-                if sys.platform == "darwin" and hasattr(key, 'vk') and key.vk is not None:
-                    vk_map = {
-                        0: "a", 1: "s", 2: "d", 3: "f", 4: "h", 5: "g", 6: "z", 7: "x",
-                        8: "c", 9: "v", 11: "b", 12: "q", 13: "w", 14: "e", 15: "r",
-                        16: "y", 17: "t", 18: "1", 19: "2", 20: "3", 21: "4", 22: "6",
-                        23: "5", 24: "=", 25: "9", 26: "7", 27: "-", 28: "8", 29: "0",
-                        30: "]", 31: "o", 32: "u", 33: "[", 34: "i", 35: "p",
-                        37: "l", 38: "j", 39: "'", 40: "k", 41: ";", 42: "\\", 43: ",",
-                        44: "/", 45: "n", 46: "m", 47: ".", 50: "`",
-                    }
-                    if key.vk in vk_map:
-                        return vk_map[key.vk]
-
-                if key.char:
-                    # Bảng ánh xạ ký tự sinh ra khi giữ Option trên bàn phím macOS
-                    opt_map = {
-                        "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
-                        "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
-                        "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
-                    }
-                    if key.char in opt_map:
-                        return opt_map[key.char]
-                    return key.char.lower()
-                if hasattr(key, 'vk') and key.vk:
-                    if 65 <= key.vk <= 90:
-                        return chr(key.vk).lower()
-                return str(key).lower()
+            # 1. Kiểm tra đối tượng phím bổ trợ enum trước (Key.alt, Key.ctrl, Key.cmd, Key.shift...)
             if key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
                 return "alt"
             if key in (keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
@@ -164,14 +135,39 @@ class _PynputHotkeyBackend:
                 getattr(keyboard.Key, 'cmd_r', None),
             ):
                 return "cmd"
+
+            # 2. Ưu tiên tra cứu Hardware Virtual Keycode trên macOS từ VK_MAP_DARWIN
+            if sys.platform == "darwin" and hasattr(key, 'vk') and key.vk is not None:
+                from vitai.darwin_compat import VK_MAP_DARWIN
+                if key.vk in VK_MAP_DARWIN:
+                    return VK_MAP_DARWIN[key.vk]
+
+            # 3. Tra cứu KeyCode & ký tự Unicode sinh ra bởi Option key
+            char_val = getattr(key, "char", None)
+            if char_val:
+                opt_map = {
+                    "œ": "q", "∑": "w", "´": "e", "®": "r", "†": "t", "¥": "y", "¨": "u", "ˆ": "i", "ø": "o", "π": "p",
+                    "å": "a", "ß": "s", "∂": "d", "ƒ": "f", "©": "g", "˙": "h", "∆": "j", "˚": "k", "¬": "l",
+                    "Ω": "z", "≈": "x", "ç": "c", "√": "v", "∫": "b", "˜": "n", "µ": "m",
+                }
+                if char_val in opt_map:
+                    return opt_map[char_val]
+                return char_val.lower()
+
+            vk_val = getattr(key, "vk", None)
+            if vk_val and isinstance(vk_val, int):
+                if 65 <= vk_val <= 90:
+                    return chr(vk_val).lower()
+                return str(key).lower()
+
         k_str = str(key).lower()
-        if "alt" in k_str:
+        if "alt" in k_str or "opt" in k_str:
             return "alt"
-        if "ctrl" in k_str:
+        if "ctrl" in k_str or "control" in k_str:
             return "ctrl"
         if "shift" in k_str:
             return "shift"
-        if "cmd" in k_str:
+        if "cmd" in k_str or "command" in k_str:
             return "cmd"
         return k_str
 
@@ -214,14 +210,16 @@ class _PynputHotkeyBackend:
     def _is_mod_pressed(self, mod: str) -> bool:
         if not mod:
             return True
-        if mod in self._pressed_keys:
+        norm_mod = _normalize_modifier(mod)
+        if norm_mod in self._pressed_keys or mod in self._pressed_keys:
             return True
         if sys.platform == "darwin":
-            # Trên macOS, cho phép dùng cả Control (⌃) hoặc Command (⌘) khi cài đặt phím ctrl
-            if mod == "ctrl" and "cmd" in self._pressed_keys:
-                return True
-            if mod == "cmd" and "ctrl" in self._pressed_keys:
-                return True
+            # Trên macOS, hỗ trợ tương thích chéo phím Command (⌘) và Control (⌃)
+            if norm_mod in ("ctrl", "cmd"):
+                if "ctrl" in self._pressed_keys or "cmd" in self._pressed_keys:
+                    return True
+        if norm_mod == "alt" and ("alt" in self._pressed_keys or "opt" in self._pressed_keys):
+            return True
         return False
 
     def _check_modifiers_only(self) -> bool:

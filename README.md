@@ -1,9 +1,9 @@
 <div align="center">
 
-# 👻 ViTai v3.1.1 — Vì Người Tài
+# 👻 ViTai v3.2.3 — Vì Người Tài
 ### *Siêu trợ lý AI bôi đen cực nhanh — Ẩn mình tuyệt đối — Tối ưu cho macOS, Linux (Fedora/Ubuntu Wayland & X11) & Windows*
 
-[![Version](https://img.shields.io/badge/Version-v3.1.1-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
+[![Version](https://img.shields.io/badge/Version-v3.2.3-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?style=for-the-badge&logo=qt&logoColor=white)](https://www.qt.io/)
 [![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%2F%20Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
@@ -13,7 +13,7 @@
 
 <br/>
 
-[Tính năng v3.0.1](#-tính-năng-đột-phá-v301) • [Tải về & Cài đặt](#-tải-về--cài-đặt-nhanh) • [Hướng dẫn sử dụng](#-hướng-dẫn-sử-dụng) • [Quản trị & Đăng ký VietQR](#-quản-trị--kích-hoạt-tự-động-vietqr) • [Tự Build](#-build-từ-mã-nguồn)
+[Tính năng v3.2.3](#-tính-năng-đột-phá-v323) • [Tải về & Cài đặt](#-tải-về--cài-đặt-nhanh) • [Hướng dẫn sử dụng](#-hướng-dẫn-sử-dụng) • [Quản trị & Đăng ký VietQR](#-quản-trị--kích-hoạt-tự-động-vietqr) • [Tự Build](#-build-từ-mã-nguồn)
 
 ---
 
@@ -23,20 +23,23 @@
 
 **ViTai** (tên ứng dụng: **"Vì Người Tài"**) là siêu trợ lý AI ẩn mình (**Ghost Assistant**) đỉnh cao, được thiết kế chuyên biệt để giải đề thi, câu hỏi trắc nghiệm, và phân tích tài liệu siêu tốc ngay khi bạn vừa bôi đen văn bản trên màn hình.
 
-Phiên bản **v3.0.1** mang đến trải nghiệm hoàn hảo với triết lý **"Zero-Footprint" (Không để lại dấu vết)**:
+Phiên bản **v3.2.3** mang đến trải nghiệm hoàn hảo với triết lý **"Zero-Footprint" (Không để lại dấu vết)**:
 * **Không icon Taskbar/System Tray**: Ứng dụng chạy ngầm tuyệt đối, không làm phiền màn hình làm việc.
 * **Không xuất hiện trong Alt + Tab / Cmd + Tab**: Hoàn toàn vô hình trước trình quản lý cửa sổ hệ điều hành.
 * **Ghost Direct Overlay**: Chỉ hiển thị duy nhất **1 ký tự đáp án** nổi nhẹ nhàng ngay sát đuôi đoạn văn bản vừa bôi đen và biến mất ngay khi nhấp chuột.
+* **Không cướp Focus trên macOS / Google Chrome**: Đáp án hiển thị trực tiếp trên trình duyệt mà không làm mất tiêu điểm hay tab chuyển ứng dụng.
 * **Tự động kích hoạt tài khoản 24/7**: Tích hợp cổng thanh toán VietQR ngân hàng (SePay API) cho phép người dùng tự quét mã chuyển khoản 50.000đ và kích hoạt tài khoản ngay tức thì.
 
 ---
 
-## 🚀 Tính năng đột phá v3.0.1
+## 🚀 Tính năng đột phá v3.2.3
 
 | Tính năng | Mô tả chi tiết |
 |---|---|
 | 👻 **Pure Ghost Direct Overlay** | Lớp phủ trong suốt 100%, không viền, không khung nền. Ký tự đáp án (`A`, `B`, `C`, `D`...) xuất hiện ngay sát cạnh phải ký tự cuối cùng của đoạn văn bản bôi đen. |
+| 🍏 **macOS Zero-Tab Switch HUD** | Tối ưu hóa chuyên sâu cho macOS Cocoa/Quartz: không nhảy cửa sổ, không chuyển tab khỏi Google Chrome/Safari khi bấm giải bài (`Option + Q`). |
 | 🎯 **Căn Tọa Độ Đuôi Bôi Đen** | Tự động nhận diện tọa độ kết thúc của thao tác bôi đen (kéo chuột hoặc click đúp) trên cả **Windows, Linux (Wayland/X11), macOS**. |
+| ⌨️ **Mở Menu Cài Đặt Linh Hoạt** | Bấm **`Option (⌥) + Command (⌘) + V`**, **`Option (⌥) + Control (⌃) + V`** hoặc **click đúp vào `ViTai.app`** bất kỳ lúc nào để mở lại bảng Cài đặt. |
 | 💳 **Kích Hoạt Tự Động VietQR 50.000đ** | Tích hợp cổng thanh toán SePay quét mã VietQR ngân hàng **MBBank (`99924052005 - LE VO THANH NAM`)**, tự động xác nhận và mở khóa tài khoản ngay lập tức. |
 | 🛡️ **Bảo Mật Phần Cứng & Hybrid Cloud Auth** | Khóa cố định địa chỉ MAC ở lần đăng nhập đầu tiên cho User thường. Tài khoản Admin gốc `vinguoitai` đăng nhập tự do mọi máy tính. Đồng bộ đa máy qua Supabase / Firebase. |
 | 👨‍💼 **Menu Quản Trị Người Dùng Toàn Diện** | Tab Quản Trị hiển thị danh sách người dùng, mật khẩu, vai trò, địa chỉ MAC, cho phép Thêm User, Reset MAC, Đổi Mật Khẩu, Khóa/Mở và Xóa User trực quan. |
@@ -56,40 +59,44 @@ Truy cập trang [Releases](https://github.com/namtacozz/ViTai/releases) và t�
 
 * 🪟 **Windows (10 / 11)**: Tải `ViTai-Windows-x64.zip` $\rightarrow$ Giải nén $\rightarrow$ Chạy `ViTai.exe`.
 * 🐧 **Linux (Fedora / Ubuntu / Arch)**: Tải `ViTai-Linux-x86_64.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy `./ViTai`.
-* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-*-macos-*.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy **`ViTai.app`** trực tiếp (không mở cửa sổ Terminal).
+* 🍎 **macOS (Apple Silicon & Intel)**: Tải `ViTai-v3.2.3-macos-*.tar.gz` $\rightarrow$ Giải nén $\rightarrow$ Chạy **`ViTai.app`** trực tiếp.
 
 ---
 
-### 🍎 Hướng dẫn chi tiết cho macOS (Mở trực tiếp ViTai.app & Cấp quyền)
+### 🍎 Hướng dẫn chi tiết cho macOS (Cấp quyền & Khởi chạy)
 
-Bản build mới tự động tạo gói ứng dụng chuẩn macOS **`ViTai.app`** chạy ngầm mượt mà (không bật cửa sổ Terminal, không bị giật hay nhảy tab ra khỏi Google Chrome):
+Bản build macOS tự động tạo gói ứng dụng chuẩn **`ViTai.app`** chạy ngầm tàng hình, không mở cửa sổ Terminal và không cướp focus của Google Chrome:
 
 #### 1. Gỡ chặn kiểm duyệt Gatekeeper & Ký xác minh (Chỉ làm 1 lần đầu)
 Mở ứng dụng **Terminal** trên macOS và chạy:
 
 ```bash
-# 1. Đi vào thư mục Tải về
+# 1. Đi vào thư mục chứa file tải về (ví dụ Downloads)
 cd ~/Downloads
 
-# 2. Xóa toàn bộ cờ chặn cách ly của Apple
+# 2. Xóa toàn bộ cờ cách ly của Apple Gatekeeper
 sudo xattr -cr ViTai.app
 
-# 3. Ký lại chữ ký ứng dụng nội bộ (Ad-hoc)
+# 3. Ký lại chứng chỉ nội bộ Ad-hoc
 codesign --force --deep --sign - ViTai.app
 ```
-*(Nhập mật khẩu máy Mac khi được yêu cầu để gỡ cờ kiểm duyệt thành công)*.
+*(Nhập mật khẩu máy Mac của bạn khi được hỏi để hoàn tất)*.
 
-#### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt
-Để ViTai có thể bắt phím tắt toàn cục và tự động trích xuất nội dung bôi đen:
-1. Vào **Cài đặt hệ thống** (*System Settings*) $\rightarrow$ **Quyền riêng tư & Bảo mật** (*Privacy & Security*).
-2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal** nếu chạy lệnh).
+> 💡 **Cách gỡ chặn nhanh không dùng Terminal**: Nhấp chuột phải (hoặc giữ phím `Control` rồi click) vào `ViTai.app` $\rightarrow$ Chọn **Open** (*Mở*) $\rightarrow$ Nhấn **Open** xác nhận.
+
+#### 2. Cấp quyền Trợ Năng (Accessibility) & Giám sát phím tắt (Bắt buộc)
+Để ViTai có thể lắng nghe phím tắt toàn cục và đọc nội dung văn bản bôi đen:
+1. Mở **Cài đặt hệ thống** (*System Settings*) $\rightarrow$ Chọn **Quyền riêng tư & Bảo mật** (*Privacy & Security*).
+2. Vào mục **Trợ năng** (*Accessibility*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal** nếu chạy bằng lệnh).
 3. Vào mục **Giám sát đầu vào** (*Input Monitoring*) $\rightarrow$ Bật công tắc xanh cho **ViTai** (hoặc **Terminal**).
 
-#### 3. Khởi chạy & Sử dụng
-* **Chạy ứng dụng trực tiếp**: Click đúp vào **`ViTai.app`** (hoặc gõ `open ViTai.app` trong Terminal). Ứng dụng sẽ chạy ngầm độc lập hoàn toàn, **không hiện cửa sổ Terminal**.
-* **Phím kích hoạt giải đề (`Alt + Q`)**: Bôi đen câu hỏi trong Google Chrome rồi bấm **`Option (⌥) + Q`** $\rightarrow$ Đáp án hiển thị trực tiếp ngay cạnh vùng bôi đen và **giữ nguyên cửa sổ Google Chrome** (không bị chuyển focus hay tab đi nơi khác).
-* **Phím tắt mở Cài Đặt (`Ctrl + Alt + V`)**: Bấm tổ hợp **`Control (⌃) + Option (⌥) + V`**.
-* **Hoặc mở cài đặt từ dòng lệnh**: `./ViTai --settings` hoặc `open ViTai.app --args --settings`.
+#### 3. Khởi chạy & Sử dụng trên macOS
+* **Khởi chạy ứng dụng**: Click đúp vào **`ViTai.app`** (hoặc gõ `open ViTai.app`).
+* **Lấy đáp án giải đề (`Option + Q`)**: Bôi đen câu hỏi trong Google Chrome $\rightarrow$ Bấm **`Option (⌥) + Q`** $\rightarrow$ Đáp án hiển thị trực tiếp ngay cạnh con trỏ chuột và **Google Chrome vẫn giữ nguyên 100% focus** (không bị tab hay chuyển app).
+* **Mở lại Menu Cài Đặt**: 
+  - Cách 1: Bấm tổ hợp **`Option (⌥) + Command (⌘) + V`** hoặc **`Option (⌥) + Control (⌃) + V`**.
+  - Cách 2: Click đúp vào file **`ViTai.app`** (hoặc click icon ViTai trên Dock) bất kỳ lúc nào để đưa menu Cài đặt lên phía trước.
+  - Cách 3: Chạy lệnh `open ViTai.app --args --settings`.
 
 ---
 
@@ -117,12 +124,12 @@ flowchart LR
 
 1. **Lấy đáp án trắc nghiệm**:
    - Dùng chuột bôi đen câu hỏi và các lựa chọn trả lời.
-   - Nhấn phím tắt kích hoạt (mặc định: `Alt + Q` hoặc nút chuột tùy chọn).
+   - Nhấn phím tắt kích hoạt (mặc định: `Alt + Q` trên Windows/Linux hoặc `Option + Q` trên macOS).
    - Đáp án (ví dụ: `A`) sẽ hiện ngay sát đuôi phần bôi đen.
    - Nhấp chuột bất kỳ trên màn hình để ẩn đáp án ngay lập tức.
 
 2. **Mở Menu Cài Đặt ("Vì Người Tài")**:
-   - Nhấn tổ hợp phím **`Ctrl + Alt + V`** (hoặc **`Cmd + Alt + V`** trên macOS).
+   - Nhấn tổ hợp phím **`Ctrl + Alt + V`** (hoặc **`Option + Cmd + V` / `Option + Ctrl + V`** trên macOS).
    - **Thẻ Vỏ**: Đổi phím tắt/nút chuột, chọn màu chữ bằng Bảng màu tròn 360°, đổi kích thước chữ, xem trước trên nền Đen/Trắng, bật Fast Mode, Cache.
    - **Thẻ Lõi**: Lựa chọn Provider AI (Codex, Gemini, Kiro, 9Router, DeepSeek...), chọn Model AI, cấu hình API Key hoặc OAuth.
    - **Thẻ Quản Trị**: Quản lý tài khoản, xem mật khẩu, reset địa chỉ MAC khi đổi máy tính, cấu hình Cloud Sync Supabase/Firebase.
@@ -152,7 +159,7 @@ flowchart LR
 ```bash
 chmod +x build_linux.sh
 ./build_linux.sh
-# File kết quả: dist/ViTai/ViTai và dist/ViTai-v3.1.1-linux-x86_64.tar.gz
+# File kết quả: dist/ViTai/ViTai và dist/ViTai-v3.2.3-linux-x86_64.tar.gz
 ```
 
 ### Build trên Windows
@@ -165,14 +172,14 @@ python scripts\build_windows.py
 ```bash
 chmod +x build_mac.sh
 ./build_mac.sh
-# File kết quả: dist/ViTai.app và dist/ViTai-MacOS.tar.gz
+# File kết quả: dist/ViTai.app và dist/ViTai-v3.2.3-macos-*.tar.gz
 ```
 
 ---
 
 ## 🧪 Kiểm thử tự động (Unit Tests)
 
-Dự án đi kèm bộ kiểm thử toàn diện với **50+ test cases**:
+Dự án đi kèm bộ kiểm thử toàn diện với **57+ test cases**:
 
 ```bash
 pytest -v

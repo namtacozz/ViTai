@@ -165,3 +165,100 @@ def test_ensure_darwin_compat():
     assert "ApplicationServices" in sys.modules
     assert hasattr(sys.modules["ApplicationServices"], "AXIsProcessTrusted")
     assert sys.modules["ApplicationServices"].AXIsProcessTrusted() in (True, False, 1, 0)
+
+
+def test_macos_virtual_keycodes():
+    from vitai.darwin_compat import VK_MAP_DARWIN
+
+    assert VK_MAP_DARWIN[55] == "cmd"
+    assert VK_MAP_DARWIN[54] == "cmd"
+    assert VK_MAP_DARWIN[58] == "alt"
+    assert VK_MAP_DARWIN[61] == "alt"
+    assert VK_MAP_DARWIN[59] == "ctrl"
+    assert VK_MAP_DARWIN[62] == "ctrl"
+    assert VK_MAP_DARWIN[56] == "shift"
+    assert VK_MAP_DARWIN[60] == "shift"
+    assert VK_MAP_DARWIN[12] == "q"
+    assert VK_MAP_DARWIN[9] == "v"
+    assert VK_MAP_DARWIN[8] == "c"
+
+
+def test_hotkey_canonical_with_vk_darwin():
+    backend = _PynputHotkeyBackend("ctrl+alt", "v", lambda: None)
+
+    class MockVKKey:
+        def __init__(self, vk, char=None):
+            self.vk = vk
+            self.char = char
+
+    with patch("sys.platform", "darwin"):
+        assert backend._canonical(MockVKKey(55)) == "cmd"
+        assert backend._canonical(MockVKKey(58)) == "alt"
+        assert backend._canonical(MockVKKey(59)) == "ctrl"
+        assert backend._canonical(MockVKKey(9)) == "v"
+        assert backend._canonical(MockVKKey(12)) == "q"
+        # Test Option characters
+        assert backend._canonical(MockVKKey(None, char="œ")) == "q"
+        assert backend._canonical(MockVKKey(None, char="√")) == "v"
+
+
+def test_menu_hotkey_match_macos_combos():
+    backend = _PynputHotkeyBackend("ctrl+alt", "v", lambda: None)
+
+    # 1. Option + Command + V
+    with patch("sys.platform", "darwin"):
+        backend._pressed_keys = {"alt", "cmd", "v"}
+        assert backend._check_match() is True
+
+        # 2. Option + Control + V
+        backend._pressed_keys = {"alt", "ctrl", "v"}
+        assert backend._check_match() is True
+
+        # 3. Chỉ có Option + V -> False (yêu cầu ctrl/cmd + alt)
+        backend._pressed_keys = {"alt", "v"}
+        assert backend._check_match() is False
+
+
+def test_answer_hotkey_match_option_q():
+    backend = _PynputHotkeyBackend("alt", "q", lambda: None)
+
+    with patch("sys.platform", "darwin"):
+        backend._pressed_keys = {"alt", "q"}
+        assert backend._check_match() is True
+
+        # Option alias
+        backend_opt = _PynputHotkeyBackend("option", "q", lambda: None)
+        backend_opt._pressed_keys = {"alt", "q"}
+        assert backend_opt._check_match() is True
+
+
+def test_darwin_ghost_window_and_front_helpers():
+    from vitai.darwin_compat import (
+        bring_window_to_front,
+        order_front_regardless,
+        send_cmd_c_macos,
+        set_darwin_activation_policy,
+        setup_macos_dock_reopen_handler,
+        setup_macos_ghost_window,
+    )
+
+    mock_widget = MagicMock()
+    mock_widget.winId.return_value = 123456
+
+    # Non-darwin should be safe no-op
+    with patch("sys.platform", "linux"):
+        setup_macos_ghost_window(mock_widget)
+        order_front_regardless(mock_widget)
+        set_darwin_activation_policy(True)
+        setup_macos_dock_reopen_handler(lambda: None)
+        assert send_cmd_c_macos() is False
+
+    # Darwin calls
+    with patch("sys.platform", "darwin"):
+        set_darwin_activation_policy(True)
+        set_darwin_activation_policy(False)
+        bring_window_to_front(mock_widget)
+        assert mock_widget.show.called
+        assert mock_widget.raise_.called
+        assert mock_widget.activateWindow.called
+
