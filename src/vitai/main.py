@@ -9,7 +9,7 @@ import traceback
 from dataclasses import replace
 from pathlib import Path
 
-from vitai.darwin_compat import ensure_darwin_compat
+from vitai.darwin_compat import ensure_darwin_compat, set_darwin_activation_policy
 
 ensure_darwin_compat()
 
@@ -105,6 +105,9 @@ class ViTaiApp:
         self.qt_app.setDesktopFileName("vitai")
         self.qt_app.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         self.qt_app.setQuitOnLastWindowClosed(False)
+
+        # Trên macOS, chạy ngầm hoàn toàn không hiện icon thanh Dock & không hiện trong Alt+Tab
+        set_darwin_activation_policy(True)
 
         self.bridge = UiBridge()
         self.bridge.hotkey_pressed.connect(self.handle_hotkey)
@@ -269,9 +272,12 @@ class ViTaiApp:
             if hasattr(self.settings_window, "_maybe_confirm_close"):
                 if self.settings_window._maybe_confirm_close():
                     self.settings_window.hide()
+                    set_darwin_activation_policy(True)
             else:
                 self.settings_window.hide()
+                set_darwin_activation_policy(True)
         else:
+            set_darwin_activation_policy(False)
             self.settings_window.show()
             self.settings_window.raise_()
             self.settings_window.activateWindow()
@@ -285,6 +291,7 @@ class ViTaiApp:
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
+        set_darwin_activation_policy(False)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()

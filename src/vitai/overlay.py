@@ -119,14 +119,17 @@ class AnswerOverlay(QWidget):
         else:
             self._move_to_anchor()
         self.show()
-        if sys.platform != "darwin":
-            self.raise_()
+        self.raise_()
 
     def _move_to_anchor(self) -> None:
         screen = QApplication.primaryScreen()
         if screen is None:
             return
         geo = screen.availableGeometry()
+
+        if self._anchor.x() == 0 and self._anchor.y() == 0:
+            from PyQt6.QtGui import QCursor
+            self._anchor = QCursor.pos()
 
         # Đặt chữ cái ngay sát cạnh đuôi phần bôi đen (ngay góc phải con trỏ chuột)
         x = self._anchor.x() + 8

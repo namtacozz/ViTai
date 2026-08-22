@@ -85,3 +85,22 @@ def ensure_darwin_compat(force: bool = False) -> None:
         pynput_darwin.keycode_to_string = _safe_keycode_to_string
     except Exception:
         pass
+
+
+def set_darwin_activation_policy(is_accessory: bool = True) -> None:
+    """
+    Chuyển đổi trạng thái hiển thị trên macOS:
+    - is_accessory=True (1): Ứng dụng chạy ngầm tàng hình, KHÔNG icon Dock, KHÔNG Alt+Tab, không cướp focus của Chrome.
+    - is_accessory=False (0): Mở giao diện Cài đặt (Settings) tương tác bình thường.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        import AppKit
+        ns_app = AppKit.NSApplication.sharedApplication()
+        policy = 1 if is_accessory else 0  # 1 = NSApplicationActivationPolicyAccessory, 0 = NSApplicationActivationPolicyRegular
+        ns_app.setActivationPolicy_(policy)
+        if not is_accessory:
+            ns_app.activateIgnoringOtherApps_(True)
+    except Exception:
+        pass

@@ -127,50 +127,30 @@ def _simulate_ctrl_c_ydotool() -> bool:
         return False
 
 
-def _simulate_cmd_c_macos_quartz() -> bool:
-    """Giả lập Cmd+C trên macOS bằng Quartz Native Event Tap (không chiếm focus, tốc độ tức thì)."""
-    try:
-        from Quartz import (
-            CGEventCreateKeyboardEvent,
-            CGEventSetFlags,
-            CGEventPost,
-            kCGHIDEventTap,
-            kCGEventFlagMaskCommand,
-        )
-        # Mã phím ảo của ký tự 'C' trên macOS là 8
-        event_down = CGEventCreateKeyboardEvent(None, 8, True)
-        CGEventSetFlags(event_down, kCGEventFlagMaskCommand)
-        event_up = CGEventCreateKeyboardEvent(None, 8, False)
-        CGEventSetFlags(event_up, kCGEventFlagMaskCommand)
-        CGEventPost(kCGHIDEventTap, event_down)
-        CGEventPost(kCGHIDEventTap, event_up)
-        _log.info("[CAPTURE] Quartz Cmd+C native đã gửi.")
-        return True
-    except Exception as e:
-        _log.warning(f"[CAPTURE] Quartz Cmd+C lỗi: {e}")
-        return False
-
-
 def _simulate_ctrl_c_pynput() -> bool:
-    """Giả lập Ctrl+C bằng pynput (chỉ hoạt động trên X11 / Windows / macOS)."""
+    """Giả lập Ctrl+C / Cmd+C bằng pynput."""
     try:
         from pynput.keyboard import Controller, Key
         kb = Controller()
-        kb.release(Key.alt)
-        kb.release(Key.alt_l)
-        kb.release(Key.alt_r)
+        for k in [Key.alt, Key.alt_l, Key.alt_r, Key.ctrl, Key.ctrl_l, Key.ctrl_r, Key.shift, Key.shift_l, Key.shift_r]:
+            try:
+                kb.release(k)
+            except Exception:
+                pass
         if sys.platform == "darwin":
-            kb.release(Key.cmd)
-            kb.release(Key.cmd_l)
-            kb.release(Key.cmd_r)
-        time.sleep(0.03)
+            for k in [Key.cmd, getattr(Key, "cmd_l", Key.cmd), getattr(Key, "cmd_r", Key.cmd)]:
+                try:
+                    kb.release(k)
+                except Exception:
+                    pass
+        time.sleep(0.04)
         cmd_key = Key.cmd if sys.platform == "darwin" else Key.ctrl
         with kb.pressed(cmd_key):
             kb.tap('c')
-        _log.info("[CAPTURE] pynput Ctrl+C/Cmd+C đã gửi.")
+        _log.info("[CAPTURE] pynput Cmd+C/Ctrl+C đã gửi.")
         return True
     except Exception as e:
-        _log.warning(f"[CAPTURE] pynput Ctrl+C/Cmd+C lỗi: {e}")
+        _log.warning(f"[CAPTURE] pynput Cmd+C/Ctrl+C lỗi: {e}")
         return False
 
 
@@ -188,6 +168,30 @@ def _simulate_cmd_c_macos_applescript() -> bool:
         return ok
     except Exception as e:
         _log.warning(f"[CAPTURE] macOS osascript Cmd+C lỗi: {e}")
+        return False
+
+
+def _simulate_cmd_c_macos_quartz() -> bool:
+    """Giả lập Cmd+C trên macOS bằng Quartz Session Event Tap."""
+    try:
+        from Quartz import (
+            CGEventCreateKeyboardEvent,
+            CGEventSetFlags,
+            CGEventPost,
+            kCGSessionEventTap,
+            kCGEventFlagMaskCommand,
+        )
+        # Mã phím ảo của ký tự 'C' trên macOS là 8
+        event_down = CGEventCreateKeyboardEvent(None, 8, True)
+        CGEventSetFlags(event_down, kCGEventFlagMaskCommand)
+        event_up = CGEventCreateKeyboardEvent(None, 8, False)
+        CGEventSetFlags(event_up, kCGEventFlagMaskCommand)
+        CGEventPost(kCGSessionEventTap, event_down)
+        CGEventPost(kCGSessionEventTap, event_up)
+        _log.info("[CAPTURE] Quartz Session Cmd+C native đã gửi.")
+        return True
+    except Exception as e:
+        _log.warning(f"[CAPTURE] Quartz Cmd+C lỗi: {e}")
         return False
 
 
@@ -211,7 +215,7 @@ def _read_clipboard_macos() -> str | None:
 
 
 def _get_selected_text_macos() -> str | None:
-    """Bắt text bôi đen trên macOS bằng Cmd+C (Ưu tiên Quartz -> pynput -> AppleScript)."""
+    """Bắt text bôi đen trên macOS bằng Cmd+C đa cơ chế."""
     _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen qua Cmd+C...")
     try:
         import pyperclip
@@ -226,23 +230,34 @@ def _get_selected_text_macos() -> str | None:
         except Exception:
             pass
 
-        # 1. Thử gửi Cmd+C trực tiếp qua Quartz C API (giữ nguyên cửa sổ Google Chrome, không đổi focus)
-        success = _simulate_cmd_c_macos_quartz()
-        if not success:
-            success = _simulate_ctrl_c_pynput()
-        time.sleep(0.08)
-        selected = _read_clipboard_macos()
+        # 1. Thử gửi Cmd+C qua pynput Controller
+        _simulate_ctrl_c_pynput()
+        for _ in range(3):
+            time.sleep(0.06)
+            selected = _read_clipboard_macos()
+            if selected:
+                _log.info(f"[CAPTURE] ✅ macOS pynput thành công: '{selected[:80]}'")
+                return selected
 
-        # 2. Nếu chưa đọc được, thử fallback qua osascript AppleScript
-        if not selected:
-            _log.info("[CAPTURE] Quartz/pynput chưa bắt được text trên macOS, thử fallback AppleScript...")
-            if _simulate_cmd_c_macos_applescript():
-                time.sleep(0.1)
-                selected = _read_clipboard_macos()
+        # 2. Thử fallback qua AppleScript osascript
+        _log.info("[CAPTURE] pynput chưa đọc được clipboard, thử fallback AppleScript...")
+        _simulate_cmd_c_macos_applescript()
+        for _ in range(3):
+            time.sleep(0.06)
+            selected = _read_clipboard_macos()
+            if selected:
+                _log.info(f"[CAPTURE] ✅ macOS AppleScript thành công: '{selected[:80]}'")
+                return selected
 
-        if selected:
-            _log.info(f"[CAPTURE] ✅ macOS thành công: '{selected[:80]}'")
-            return selected
+        # 3. Thử fallback qua Quartz Session Event Tap
+        _log.info("[CAPTURE] Thử fallback Quartz Session...")
+        _simulate_cmd_c_macos_quartz()
+        for _ in range(3):
+            time.sleep(0.06)
+            selected = _read_clipboard_macos()
+            if selected:
+                _log.info(f"[CAPTURE] ✅ macOS Quartz thành công: '{selected[:80]}'")
+                return selected
 
         # Khôi phục lại clipboard cũ nếu không lấy được text mới
         if original_clip:
