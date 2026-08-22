@@ -33,6 +33,10 @@ pyz = PYZ(a.pure)
 import sys
 import os
 
+is_darwin = sys.platform == 'darwin'
+use_upx = not is_darwin
+entitlements_path = 'entitlements.plist' if is_darwin and os.path.exists('entitlements.plist') else None
+
 exe_icon = ['assets/icon.ico'] if sys.platform == 'win32' else None
 bundle_icon = 'assets/icon.icns' if os.path.exists('assets/icon.icns') else None
 
@@ -45,13 +49,13 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=use_upx,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
-    entitlements_file=None,
+    entitlements_file=entitlements_path,
     icon=exe_icon,
 )
 
@@ -60,7 +64,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=use_upx,
     upx_exclude=[],
     name='ViTai',
 )

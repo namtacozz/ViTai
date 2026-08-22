@@ -76,30 +76,16 @@ def ensure_darwin_compat(force: bool = False) -> None:
         import contextlib
         import pynput._util.darwin as pynput_darwin
 
-        # Nạp và cache layout trên Main Thread (nơi được phép gọi Carbon TIS APIs)
-        _cached_context = (0, None)
-        try:
-            with pynput_darwin.keycode_context() as ctx:
-                _cached_context = ctx
-        except Exception:
-            pass
-
+        # Tránh gọi Carbon TIS APIs / dlopen sớm gây deadlock hoặc crash dyld4
         @contextlib.contextmanager
         def _safe_keycode_context():
-            yield _cached_context
+            yield (0, None)
 
         # Thay thế hàm keycode_context để thread ngầm không gọi Carbon APIs gây crash
         pynput_darwin.keycode_context = _safe_keycode_context
 
-        # Bổ sung bảng tra cứu ảo khi layout_data không có sẵn
-        orig_keycode_to_string = getattr(pynput_darwin, "keycode_to_string", None)
-
+        # Bổ sung bảng tra cứu ảo chuẩn Virtual Keycodes từ VK_MAP_DARWIN
         def _safe_keycode_to_string(context, keycode, modifier_state=0):
-            try:
-                if context and context[1] is not None and orig_keycode_to_string is not None:
-                    return orig_keycode_to_string(context, keycode, modifier_state)
-            except Exception:
-                pass
             return VK_MAP_DARWIN.get(keycode, "")
 
         pynput_darwin.keycode_to_string = _safe_keycode_to_string

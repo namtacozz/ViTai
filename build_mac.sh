@@ -30,7 +30,7 @@ chmod +x dist/ViTai/ViTai 2>/dev/null || true
 
 if command -v codesign &>/dev/null && [ -d "dist/ViTai.app" ]; then
     echo "🔏 Đang ký ad-hoc codesign cho ViTai.app..."
-    codesign --force --deep --sign - dist/ViTai.app 2>/dev/null || true
+    codesign --force --deep --options runtime --entitlements entitlements.plist --sign - dist/ViTai.app 2>/dev/null || codesign --force --deep --sign - dist/ViTai.app 2>/dev/null || true
 fi
 
 TARGETS=()
