@@ -35,6 +35,18 @@ jobs:
             libx11-dev \
             libxtst-dev \
             libxkbcommon-x11-0 \
+            libxkbcommon-dev \
+            libxcb-cursor0 \
+            libxcb-xinerama0 \
+            libxcb-shape0 \
+            libxcb-xfixes0 \
+            libxcb-render-util0 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-sync1 \
+            libxcb-xkb1 \
+            libxcb-icccm4 \
             libegl1 \
             libgl1 \
             libglib2.0-0 \
@@ -53,7 +65,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           PYTHONPATH: src
         run: |
-          python -m pytest -v
+          xvfb-run -a python -m pytest -v
 
   build-windows:
     name: Build Windows Binary
@@ -110,6 +122,18 @@ jobs:
             libx11-dev \
             libxtst-dev \
             libxkbcommon-x11-0 \
+            libxkbcommon-dev \
+            libxcb-cursor0 \
+            libxcb-xinerama0 \
+            libxcb-shape0 \
+            libxcb-xfixes0 \
+            libxcb-render-util0 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-sync1 \
+            libxcb-xkb1 \
+            libxcb-icccm4 \
             libegl1 \
             libgl1 \
             libglib2.0-0 \

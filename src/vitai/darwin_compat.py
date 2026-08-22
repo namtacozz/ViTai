@@ -131,26 +131,36 @@ def set_darwin_activation_policy(is_accessory: bool = True) -> None:
         if not objc_path:
             return
         objc = ctypes.cdll.LoadLibrary(objc_path)
+        if not hasattr(objc, "objc_getClass") or not hasattr(objc, "sel_registerName"):
+            return
         objc.objc_getClass.restype = ctypes.c_void_p
         objc.objc_getClass.argtypes = [ctypes.c_char_p]
         objc.sel_registerName.restype = ctypes.c_void_p
         objc.sel_registerName.argtypes = [ctypes.c_char_p]
 
         cls_nsapp = objc.objc_getClass(b"NSApplication")
+        if not cls_nsapp:
+            return
         sel_shared = objc.sel_registerName(b"sharedApplication")
+        if not sel_shared:
+            return
         msg_send = objc.objc_msgSend
         msg_send.restype = ctypes.c_void_p
         msg_send.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         ns_app = msg_send(cls_nsapp, sel_shared)
+        if not ns_app:
+            return
 
         sel_policy = objc.sel_registerName(b"setActivationPolicy:")
-        msg_send_long = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long))
-        msg_send_long(ns_app, sel_policy, ctypes.c_long(1 if is_accessory else 0))
+        if sel_policy:
+            msg_send_long = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long))
+            msg_send_long(ns_app, sel_policy, ctypes.c_long(1 if is_accessory else 0))
 
         if not is_accessory:
             sel_activate = objc.sel_registerName(b"activateIgnoringOtherApps:")
-            msg_send_bool = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool))
-            msg_send_bool(ns_app, sel_activate, True)
+            if sel_activate:
+                msg_send_bool = ctypes.cast(msg_send, ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool))
+                msg_send_bool(ns_app, sel_activate, True)
     except Exception:
         pass
 
