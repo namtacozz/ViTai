@@ -106,9 +106,6 @@ class ViTaiApp:
         self.qt_app.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         self.qt_app.setQuitOnLastWindowClosed(False)
 
-        # Trên macOS, chạy ngầm hoàn toàn không hiện icon thanh Dock & không hiện trong Alt+Tab
-        set_darwin_activation_policy(True)
-
         self.bridge = UiBridge()
         self.bridge.hotkey_pressed.connect(self.handle_hotkey)
         self.bridge.menu_hotkey_pressed.connect(self.toggle_settings)
@@ -288,6 +285,7 @@ class ViTaiApp:
             self.settings_window = SettingsWindow(self.config)
             self.settings_window.config_changed.connect(self._on_config_changed)
             self.settings_window.exit_requested.connect(self.quit)
+            self.settings_window.window_hidden.connect(lambda: set_darwin_activation_policy(True))
         
         self.settings_window.current_user = get_current_session(self.user_store)
         self.settings_window._update_auth_ui()
@@ -498,14 +496,7 @@ def main() -> int:
             return 0
 
     app = ViTaiApp()
-    from vitai.token_store import get_token_store
-    from vitai.user_store import get_current_session, get_user_store
-    user_store = get_user_store()
-    current_user = get_current_session(user_store)
-
-    is_auth = bool(app.config.api_key) or get_token_store().is_authenticated(app.config.provider) or app.config.provider in ("9router", "openrouter")
-    if current_user is None or "--settings" in sys.argv or "--menu" in sys.argv or not is_auth:
-        app.show_settings()
+    app.show_settings()
     return app.run()
 
 

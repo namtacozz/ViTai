@@ -2113,6 +2113,7 @@ class RegisterPaymentDialog(QDialog):
 class SettingsWindow(QDialog):
     config_changed = pyqtSignal(AppConfig)
     exit_requested = pyqtSignal()
+    window_hidden = pyqtSignal()
     test_result_signal = pyqtSignal(bool, str)
     oauth_result_signal = pyqtSignal(bool, str, str)
     models_fetched_signal = pyqtSignal(list)
@@ -3622,6 +3623,10 @@ class SettingsWindow(QDialog):
         else:
             if a0:
                 a0.ignore()
+
+    def hideEvent(self, a0) -> None:
+        super().hideEvent(a0)
+        self.window_hidden.emit()
 
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
         if a0 and a0.key() == Qt.Key.Key_Escape:
