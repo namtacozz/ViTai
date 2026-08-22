@@ -1,60 +1,57 @@
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    spec_path = root / "ViTai.spec"
-    
     command = [
         sys.executable,
         "-m",
         "PyInstaller",
         "--noconfirm",
         "--clean",
-        str(spec_path),
+        "--windowed",
+        "--name",
+        "ViTai",
+        "--icon",
+        str(root / "assets" / "icon.ico"),
+        "--add-data",
+        f"{root / 'assets' / 'icon.ico'};assets",
     ]
-    print(f"Executing: {' '.join(command)}")
-    res = subprocess.run(command, cwd=root)
-    if res.returncode != 0:
-        print(f"❌ PyInstaller failed with exit code {res.returncode}")
-        return res.returncode
+    if (root / "assets" / "logo.png").exists():
+        command.extend(["--add-data", f"{root / 'assets' / 'logo.png'};assets"])
+    if (root / "assets" / "BANKQR.jpeg").exists():
+        command.extend(["--add-data", f"{root / 'assets' / 'BANKQR.jpeg'};assets"])
 
-    dist_dir = root / "dist" / "ViTai"
-    env_example = root / ".env.example"
-    dist_env = dist_dir / ".env"
-    if env_example.exists() and dist_dir.exists():
-        shutil.copy2(env_example, dist_env)
+    command.extend([
+        "--hidden-import",
+        "pynput.keyboard._win32",
+        "--hidden-import",
+        "pynput.mouse._win32",
+        "--hidden-import",
+        "certifi",
+        "--paths",
+        str(root / "src"),
+        str(root / "src" / "vitai" / "main.py"),
+    ])
 
-    readme_file = root / "README.md"
-    if readme_file.exists() and dist_dir.exists():
-        shutil.copy2(readme_file, dist_dir / "README.md")
+    print(f"Running PyInstaller command: {' '.join(command)}")
+    ret = subprocess.call(command, cwd=root)
+    if ret == 0:
+        dist_dir = root / "dist" / "ViTai"
+        env_example = root / ".env.example"
+        if env_example.exists() and dist_dir.exists():
+            shutil.copy2(env_example, dist_dir / ".env")
 
-    dist_root = root / "dist"
-    version = os.environ.get("GITHUB_REF_NAME", os.environ.get("VERSION", "v3.3.0"))
-    zip_path = dist_root / f"ViTai-{version}-windows-x64.zip"
-    zip_generic = dist_root / "ViTai-Windows-x64.zip"
+        readme_file = root / "README.md"
+        if readme_file.exists() and dist_dir.exists():
+            shutil.copy2(readme_file, dist_dir / "README.md")
 
-    if dist_dir.exists():
-        print(f"📦 Tạo file nén Release Windows ({version})...")
-        if zip_path.exists():
-            zip_path.unlink()
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for file_path in dist_dir.rglob("*"):
-                if file_path.is_file():
-                    zf.write(file_path, file_path.relative_to(dist_root))
-        shutil.copy2(zip_path, zip_generic)
-        print(f"🎁 File Release: {zip_path}")
-        print(f"🎁 File Release (Generic): {zip_generic}")
-
-    print("✅ Build Windows thành công!")
-    return 0
+    return ret
 
 
 if __name__ == "__main__":
