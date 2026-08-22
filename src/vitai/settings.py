@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import time
@@ -1994,6 +1995,7 @@ class RegisterPaymentDialog(QDialog):
 
     def _start_qr_load(self) -> None:
         def fetch_qr():
+            raw_bytes: bytes | None = None
             try:
                 import urllib.request
                 url = get_vietqr_url(
@@ -2003,13 +2005,34 @@ class RegisterPaymentDialog(QDialog):
                     amount=DEFAULT_REGISTRATION_PRICE,
                     memo=self.order_code,
                 )
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "image/png,image/*;q=0.8,*/*;q=0.5",
+                    },
+                )
                 from vitai.http_util import safe_urlopen
                 with safe_urlopen(req, timeout=8) as resp:
                     if resp.status == 200:
-                        raw = resp.read()
-                        self.qr_loaded_signal.emit(raw)
+                        raw_bytes = resp.read()
             except Exception:
                 pass
+
+            if not raw_bytes:
+                try:
+                    fallback_p = resource_path("assets/BANKQR.jpeg")
+                    if os.path.exists(fallback_p):
+                        with open(fallback_p, "rb") as f:
+                            raw_bytes = f.read()
+                except Exception:
+                    pass
+
+            if raw_bytes:
+                try:
+                    self.qr_loaded_signal.emit(raw_bytes)
+                except (RuntimeError, Exception):
+                    pass
 
         t = threading.Thread(target=fetch_qr, daemon=True)
         t.start()
