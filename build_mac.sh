@@ -22,8 +22,11 @@ if [ -d "dist/ViTai.app" ]; then
     cp .env.example dist/ViTai.app/Contents/Resources/.env 2>/dev/null || true
 fi
 
-VERSION="${GITHUB_REF_NAME:-${VERSION:-v3.1.6}}"
+VERSION="${GITHUB_REF_NAME:-${VERSION:-v3.1.8}}"
 echo "📦 Tạo file nén Release ($VERSION)..."
+
+chmod -R +x dist/ViTai.app/Contents/MacOS/* 2>/dev/null || true
+chmod +x dist/ViTai/ViTai 2>/dev/null || true
 
 TARGETS=()
 if [ -d "dist/ViTai.app" ]; then

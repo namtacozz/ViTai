@@ -127,6 +127,27 @@ def _simulate_ctrl_c_ydotool() -> bool:
         return False
 
 
+def _get_selected_text_macos_ax() -> str | None:
+    """Đọc trực tiếp văn bản bôi đen qua macOS Accessibility API (0ms, không dùng clipboard, không chuyển cửa sổ)."""
+    try:
+        import ApplicationServices
+        sys_wide = ApplicationServices.AXUIElementCreateSystemWide()
+        err, focused_elem = ApplicationServices.AXUIElementCopyAttributeValue(
+            sys_wide, "AXFocusedUIElement", None
+        )
+        if err == 0 and focused_elem:
+            err, selected_text = ApplicationServices.AXUIElementCopyAttributeValue(
+                focused_elem, "AXSelectedText", None
+            )
+            if err == 0 and selected_text and str(selected_text).strip():
+                text_str = str(selected_text).strip()
+                _log.info(f"[CAPTURE] ✅ macOS Accessibility trực tiếp OK ({len(text_str)} chars): '{text_str[:60]}...'")
+                return text_str
+    except Exception as e:
+        _log.warning(f"[CAPTURE] AXUIElement: {e}")
+    return None
+
+
 def _simulate_ctrl_c_pynput() -> bool:
     """Giả lập Ctrl+C / Cmd+C bằng pynput."""
     try:
@@ -154,44 +175,34 @@ def _simulate_ctrl_c_pynput() -> bool:
         return False
 
 
-def _simulate_cmd_c_macos_applescript() -> bool:
-    """Giả lập Cmd+C trên macOS bằng AppleScript (System Events)."""
+def _simulate_cmd_c_macos_silent() -> bool:
+    """Giả lập Cmd+C hướng tới ứng dụng đang active mà không kích hoạt Terminal."""
+    try:
+        import AppKit
+        script_src = '''
+        tell application "System Events"
+            set frontApp to first application process whose frontmost is true
+            tell frontApp to keystroke "c" using command down
+        end tell
+        '''
+        script = AppKit.NSAppleScript.alloc().initWithSource_(script_src)
+        if script:
+            script.executeAndReturnError_(None)
+            _log.info("[CAPTURE] NSAppleScript silent Cmd+C đã gửi.")
+            return True
+    except Exception:
+        pass
+
     try:
         res = subprocess.run(
-            ["osascript", "-e", 'tell application "System Events" to keystroke "c" using command down'],
+            ["osascript", "-e", 'tell application "System Events" to tell (first application process whose frontmost is true) to keystroke "c" using command down'],
             capture_output=True,
             text=True,
-            timeout=2,
+            timeout=1,
         )
-        ok = res.returncode == 0
-        _log.info(f"[CAPTURE] macOS osascript Cmd+C: ok={ok}")
-        return ok
+        return res.returncode == 0
     except Exception as e:
-        _log.warning(f"[CAPTURE] macOS osascript Cmd+C lỗi: {e}")
-        return False
-
-
-def _simulate_cmd_c_macos_quartz() -> bool:
-    """Giả lập Cmd+C trên macOS bằng Quartz Session Event Tap."""
-    try:
-        from Quartz import (
-            CGEventCreateKeyboardEvent,
-            CGEventSetFlags,
-            CGEventPost,
-            kCGSessionEventTap,
-            kCGEventFlagMaskCommand,
-        )
-        # Mã phím ảo của ký tự 'C' trên macOS là 8
-        event_down = CGEventCreateKeyboardEvent(None, 8, True)
-        CGEventSetFlags(event_down, kCGEventFlagMaskCommand)
-        event_up = CGEventCreateKeyboardEvent(None, 8, False)
-        CGEventSetFlags(event_up, kCGEventFlagMaskCommand)
-        CGEventPost(kCGSessionEventTap, event_down)
-        CGEventPost(kCGSessionEventTap, event_up)
-        _log.info("[CAPTURE] Quartz Session Cmd+C native đã gửi.")
-        return True
-    except Exception as e:
-        _log.warning(f"[CAPTURE] Quartz Cmd+C lỗi: {e}")
+        _log.warning(f"[CAPTURE] osascript silent Cmd+C lỗi: {e}")
         return False
 
 
@@ -215,8 +226,15 @@ def _read_clipboard_macos() -> str | None:
 
 
 def _get_selected_text_macos() -> str | None:
-    """Bắt text bôi đen trên macOS bằng Cmd+C đa cơ chế."""
-    _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen qua Cmd+C...")
+    """Bắt text bôi đen trên macOS (Ưu tiên Accessibility -> pynput -> Silent AppleScript)."""
+    _log.info("[CAPTURE] macOS: Bắt đầu lấy text bôi đen...")
+    
+    # 1. Thử đọc trực tiếp qua macOS Accessibility API (Google Chrome / Safari / Notes hỗ trợ 100%, 0ms, không đổi tab)
+    ax_text = _get_selected_text_macos_ax()
+    if ax_text:
+        return ax_text
+
+    # 2. Fallback qua Cmd+C nếu element không hỗ trợ AXSelectedText
     try:
         import pyperclip
         original_clip = ""
@@ -230,7 +248,7 @@ def _get_selected_text_macos() -> str | None:
         except Exception:
             pass
 
-        # 1. Thử gửi Cmd+C qua pynput Controller
+        # Gửi Cmd+C qua pynput
         _simulate_ctrl_c_pynput()
         for _ in range(3):
             time.sleep(0.06)
@@ -239,24 +257,14 @@ def _get_selected_text_macos() -> str | None:
                 _log.info(f"[CAPTURE] ✅ macOS pynput thành công: '{selected[:80]}'")
                 return selected
 
-        # 2. Thử fallback qua AppleScript osascript
-        _log.info("[CAPTURE] pynput chưa đọc được clipboard, thử fallback AppleScript...")
-        _simulate_cmd_c_macos_applescript()
+        # Fallback gửi Cmd+C qua silent in-process AppleScript
+        _log.info("[CAPTURE] Thử fallback qua silent AppleScript...")
+        _simulate_cmd_c_macos_silent()
         for _ in range(3):
             time.sleep(0.06)
             selected = _read_clipboard_macos()
             if selected:
-                _log.info(f"[CAPTURE] ✅ macOS AppleScript thành công: '{selected[:80]}'")
-                return selected
-
-        # 3. Thử fallback qua Quartz Session Event Tap
-        _log.info("[CAPTURE] Thử fallback Quartz Session...")
-        _simulate_cmd_c_macos_quartz()
-        for _ in range(3):
-            time.sleep(0.06)
-            selected = _read_clipboard_macos()
-            if selected:
-                _log.info(f"[CAPTURE] ✅ macOS Quartz thành công: '{selected[:80]}'")
+                _log.info(f"[CAPTURE] ✅ macOS Silent AppleScript thành công: '{selected[:80]}'")
                 return selected
 
         # Khôi phục lại clipboard cũ nếu không lấy được text mới

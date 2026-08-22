@@ -75,10 +75,10 @@ if sys.platform == 'darwin':
             'CFBundleName': 'ViTai',
             'CFBundleDisplayName': 'Vì Người Tài',
             'CFBundleIdentifier': 'com.vitai.app',
-            'CFBundleVersion': '3.1.6',
-            'CFBundleShortVersionString': '3.1.6',
+            'CFBundleVersion': '3.1.8',
+            'CFBundleShortVersionString': '3.1.8',
             'NSHighResolutionCapable': 'True',
-            'LSUIElement': '1',
+            'LSUIElement': '0',
             'NSRequiresAquaSystemAppearance': 'False',
         },
     )
