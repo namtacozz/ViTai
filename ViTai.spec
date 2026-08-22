@@ -30,6 +30,12 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+import sys
+import os
+
+exe_icon = ['assets/icon.ico'] if sys.platform == 'win32' else None
+bundle_icon = 'assets/icon.icns' if os.path.exists('assets/icon.icns') else None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -46,9 +52,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/icon.ico'],
+    icon=exe_icon,
 )
-import sys
 
 coll = COLLECT(
     exe,
@@ -64,14 +69,14 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name='ViTai.app',
-        icon='assets/icon.ico',
+        icon=bundle_icon,
         bundle_identifier='com.vitai.app',
         info_plist={
             'CFBundleName': 'ViTai',
             'CFBundleDisplayName': 'Vì Người Tài',
             'CFBundleIdentifier': 'com.vitai.app',
-            'CFBundleVersion': '3.1.5',
-            'CFBundleShortVersionString': '3.1.5',
+            'CFBundleVersion': '3.1.6',
+            'CFBundleShortVersionString': '3.1.6',
             'NSHighResolutionCapable': 'True',
             'LSUIElement': '1',
             'NSRequiresAquaSystemAppearance': 'False',
