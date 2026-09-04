@@ -1,105 +1,185 @@
 <div align="center">
 
-# 👻 ViTai v3.3.0 — Vì Người Tài
-### *Trợ lý AI giải trắc nghiệm & phân tích câu hỏi siêu tốc — Ẩn mình tuyệt đối*
+<img src="assets/logo.png" alt="ViTai Logo" width="120" />
 
-[![Version](https://img.shields.io/badge/Version-v3.3.0-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
-[![Linux](https://img.shields.io/badge/Linux-Fedora%2044%20%2F%20Ubuntu-51A2DA?style=for-the-badge&logo=linux&logoColor=white)](https://getfedora.org/)
-[![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+# ViTai v3.4.0
 
-<br/>
+### Instant AI Answer Overlay — Ghost-Mode Desktop Assistant
 
-[Tải về & Cài đặt](#-tải-về--cài-đặt-nhanh) • [Cách sử dụng](#-hướng-dẫn-sử-dụng) • [Tài khoản & Kích hoạt](#-tài-khoản--cơ-chế-hoạt-động) • [Tính năng nổi bật](#-tính-năng-cốt-lõi)
+[![Version](https://img.shields.io/badge/Version-v3.4.0-E09F5E?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/namtacozz/ViTai/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-51A2DA?style=for-the-badge&logo=desktop&logoColor=white)](#installation)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge&logo=shield&logoColor=white)](#license)
+
+**Highlight any question on your screen. Get the answer instantly.**
+
+[Download](#installation) · [How It Works](#how-it-works) · [Features](#key-features) · [Pricing](#pricing) · [FAQ](#faq)
 
 ---
 
 </div>
 
-## 🌟 Giới thiệu
+## What is ViTai?
 
-**ViTai** ("Vì Người Tài") là công cụ hỗ trợ học tập và giải đề thi trắc nghiệm thông minh. Ứng dụng hoạt động theo cơ chế **ẩn mình tuyệt đối (Ghost Assistant)**: chỉ cần bôi đen câu hỏi trên màn hình, đáp án chính xác sẽ xuất hiện ngay lập tức mà không làm gián đoạn bài làm của bạn.
+**ViTai** is a lightweight desktop application that acts as an invisible AI-powered study companion. Simply highlight any question — multiple choice, short answer, or analytical — on your screen and press a hotkey. The correct answer appears as a subtle overlay right next to your cursor, then vanishes with a single click.
 
-* 🎯 **Hiển thị trực tiếp**: Chỉ xuất hiện duy nhất 1 ký tự đáp án (`A`, `B`, `C`, `D`...) nổi nhẹ ngay sát đuôi đoạn bôi đen.
-* 👻 **Tàng hình hoàn toàn**: Không icon thanh tác vụ (Taskbar), không hiện trong `Alt + Tab`, click chuột bất kỳ là biến mất.
-* ⚡ **Phản hồi tức thì**: Kết nối trực tiếp các mô hình AI hàng đầu (Gemini, ChatGPT, Kiro, DeepSeek...) để đưa ra câu trả lời trong tích tắc.
+No browser tabs. No copy-paste. No alt-tabbing. Just answers.
 
 ---
 
-## 📥 Tải về & Cài đặt nhanh
+## How It Works
 
-Tải bản phát hành mới nhất tại mục [Releases](https://github.com/namtacozz/ViTai/releases):
+```
+1. Highlight  →  Select any question text on screen (browser, PDF, document, exam platform)
+2. Hotkey     →  Press your configured hotkey (default: Alt + Q) or mouse button
+3. Answer     →  AI-generated answer appears as a floating overlay at cursor position
+4. Dismiss    →  Click anywhere to hide. Zero trace left behind.
+```
 
-### 🪟 Dành cho Windows (10 / 11)
-1. Tải file **`ViTai-Windows-x64.zip`** (hoặc `ViTai-v3.3.0-windows-x64.zip`).
-2. Giải nén vào một thư mục bất kỳ.
-3. Chạy file **`ViTai.exe`** để bắt đầu sử dụng (không cần cài đặt phần mềm phụ trợ).
+ViTai connects to the AI provider **you choose** — using **your own API keys or OAuth login**. The app simply routes your selected text to the LLM and displays the response. Your tokens, your quota, your control.
 
-### 🐧 Dành cho Linux (Fedora, Ubuntu, Debian, Arch...)
-1. Tải file **`ViTai-Linux-x86_64.tar.gz`** (hoặc `ViTai-v3.3.0-linux-x86_64.tar.gz`).
-2. Giải nén và mở Terminal trong thư mục vừa giải nén:
+---
+
+## Key Features
+
+| Feature | Description |
+|---|---|
+| **Ghost Overlay** | Frameless, borderless, fully transparent answer display. Invisible to screen recording tools and `Alt+Tab`. |
+| **Multi-Provider AI** | Connect to Google Gemini, OpenAI/ChatGPT, Anthropic Claude, DeepSeek, Kiro AI, or any OpenAI-compatible endpoint. |
+| **Flexible Hotkeys** | Bind any keyboard shortcut or mouse button (Right, Middle, Side/X1, Extra/X2) as your trigger. |
+| **360° Color Wheel** | Pick any overlay text color to ensure perfect contrast on any background. Photoshop-style HSV wheel. |
+| **Smart Cache** | Previously answered questions return in 0ms — no repeated API calls. |
+| **Fast Mode** | Enable auto-analysis: answers appear the instant you release the mouse after highlighting. No hotkey needed. |
+| **Cross-Platform** | Native support for Windows 10/11 and Linux (X11 + Wayland/Fedora/Ubuntu/Arch). |
+| **Hardware-Bound Security** | Multi-layer device fingerprinting. Encrypted local token storage. Anti-tamper account protection. |
+| **Dark Mode UI** | Clean, minimal carbon-dark interface with warm amber accents. |
+
+---
+
+## Installation
+
+### Windows (10 / 11)
+1. Download **`ViTai-v3.4.0-windows-x64.zip`** from [Releases](https://github.com/namtacozz/ViTai/releases).
+2. Extract to any folder.
+3. Run **`ViTai.exe`** — no dependencies required.
+
+### Linux (Fedora / Ubuntu / Debian / Arch)
+1. Download **`ViTai-v3.4.0-linux-x86_64.tar.gz`** from [Releases](https://github.com/namtacozz/ViTai/releases).
+2. Extract and run:
    ```bash
-   tar -xvf ViTai-*-linux-x86_64.tar.gz
-   cd ViTai
-   ./ViTai
+   tar -xvf ViTai-v3.4.0-linux-x86_64.tar.gz
+   cd ViTai && ./ViTai
    ```
-> 💡 **Mẹo cho người dùng Linux (Wayland / Fedora)**:
-> Để bắt tọa độ chuột và bôi đen mượt mà nhất, hãy cấp quyền thiết bị input một lần duy nhất:
+
+> **Linux tip (Wayland/Fedora):** For smooth mouse tracking, grant input access once:
 > ```bash
 > sudo usermod -aG input $USER
 > ```
-> *(Sau đó đăng xuất và đăng nhập lại máy tính)*.
+> Then log out and back in.
 
 ---
 
-## 🎮 Hướng dẫn sử dụng
+## Pricing
 
-### 1. Lấy đáp án câu hỏi
-1. Dùng chuột **bôi đen toàn bộ câu hỏi và các phương án trả lời** trên trình duyệt hoặc tài liệu.
-2. Nhấn phím tắt kích hoạt (mặc định: **`Alt + Q`** hoặc nút chuột bạn đã gán).
-3. Ký tự đáp án (ví dụ: `A`) sẽ hiện nổi ngay sát đuôi phần bôi đen.
-4. **Nhấp chuột bất kỳ** trên màn hình để ẩn đáp án.
+ViTai uses a one-time activation model — **no subscriptions that drain your wallet, no hidden fees**.
 
-> ⚡ **Chế độ Fast Mode (Tự động)**: Bật tính năng này trong cài đặt, ViTai sẽ tự phân tích và hiện đáp án ngay khi bạn vừa nhả chuột bôi đen xong (không cần bấm phím tắt).
+| Plan | Price | Duration | Devices |
+|---|---|---|---|
+| **Standard** | 50,000 VND (~$2 USD) | 90 days | 1 device |
+| **Lifetime** | 300,000 VND (~$12 USD) | Forever | 1 device |
 
-### 2. Mở bảng Cài Đặt (Menu)
-* Bấm tổ hợp phím **`Ctrl + Alt + V`** bất kỳ lúc nào để mở bảng điều khiển.
-* **Thẻ Vỏ (Giao diện & Phím tắt)**: 
-  * Bấm vào ô phím tắt để đổi sang phím bất kỳ hoặc gán trực tiếp vào nút chuột (Chuột phải, Chuột giữa, Nút phụ Back/Forward).
-  * Chọn màu chữ hiển thị bằng Bảng màu tròn 360°, đổi cỡ chữ, xem thử trên nền Đen/Trắng.
-  * Bật/tắt chế độ tự động phân tích (Fast Mode) và bộ nhớ đệm (Cache).
-* **Thẻ Lõi (Trí tuệ AI)**: 
-  * Chọn nguồn AI muốn sử dụng: Google Gemini, OpenAI/ChatGPT Codex, Kiro AI, 9Router, DeepSeek...
-  * Nhập API Key hoặc đăng nhập tài khoản OAuth.
+**No daily request limits.** You use your own AI provider API keys — your usage is only limited by your own LLM quota.
+
+### How to Activate
+1. Open ViTai and click **"Register Account"** on the lock screen.
+2. Scan the VietQR code and transfer the exact amount to the displayed bank account.
+3. Your account is **automatically activated 24/7** — no manual review, no waiting.
+
+> Need to transfer your license to a new device? Contact support for a free device reset.
 
 ---
 
-## 👤 Tài khoản & Cơ chế hoạt động
+## Supported AI Providers
 
-Ứng dụng sử dụng hệ thống tài khoản để lưu giữ cấu hình cá nhân và đồng bộ dữ liệu an toàn:
-
-### 1. Kích hoạt tài khoản tự động qua VietQR (50.000đ)
-* Người dùng mới mở app $\rightarrow$ Nhấn nút **`Đăng Ký Tài Khoản (Quét QR 50.000đ)`** tại màn hình khóa.
-* Quét mã VietQR chuyển khoản chính xác 50.000đ tới **MBBank (`99924052005 - LE VO THANH NAM`)** với cú pháp nội dung tự động `VITAIxxxxxx`.
-* Hệ thống tự động xác nhận giao dịch thành công và **mở khóa tài khoản ngay lập tức 24/7** mà không cần chờ duyệt thủ công.
-
-### 2. Cơ chế khóa thiết bị (Bảo vệ tài khoản)
-* **Tài khoản người dùng**: Sẽ tự động gán và khóa cố định với thiết bị của bạn ở lần đăng nhập đầu tiên nhằm bảo mật thông tin và quyền lợi tài khoản.
-* **Khi đổi máy tính mới**: Vui lòng liên hệ bộ phận hỗ trợ để được gỡ liên kết thiết bị cũ (Reset MAC) và đăng nhập trên máy tính mới.
-
----
-
-## ✨ Tính năng cốt lõi
-
-* 👻 **Ghost Direct Overlay**: Lớp hiển thị trong suốt 100%, không khung nền, không chiếm tiêu điểm chuột hay bàn phím.
-* 🖱️ **Gán phím linh hoạt**: Hỗ trợ mọi tổ hợp bàn phím hoặc nút chuột chuyên dụng.
-* 🎨 **Bảng màu tròn 360°**: Dễ dàng tùy biến màu chữ đáp án tương phản rõ nét trên mọi nền trang web.
-* 💾 **Lưu bền vững**: Giữ nguyên toàn bộ cấu hình, model AI, phím tắt và theme qua các lần sử dụng.
-* 🧠 **Bộ nhớ đệm thông minh**: Trả lời tức thì **0ms** đối với các câu hỏi đã từng giải trước đó.
+| Provider | Auth Method | Default Model |
+|---|---|---|
+| Google Gemini | API Key | gemini-2.5-flash |
+| OpenAI / ChatGPT | API Key / OAuth | cx/gpt-5.5 |
+| Anthropic Claude | API Key | claude-sonnet-4 |
+| DeepSeek | API Key | deepseek-chat |
+| Kiro AI | API Key / OAuth | kr/claude-sonnet-4.5 |
+| 9Router (Local) | API Key | High |
+| Custom | Any OpenAI-compatible endpoint | — |
 
 ---
 
-## 📄 Bản quyền (License)
+## FAQ
 
-Phát hành theo giấy phép [MIT License](LICENSE).  
-Phát triển bởi: **Vì Người Tài (ViTai Team)**.
+<details>
+<summary><b>Is ViTai detectable by exam proctoring software?</b></summary>
+
+ViTai's overlay is designed to be invisible to standard window enumeration (`Alt+Tab`, taskbar). It uses frameless, input-transparent Qt windows. However, advanced proctoring tools with screen capture may still detect pixel changes. Use responsibly.
+</details>
+
+<details>
+<summary><b>Can I use ViTai on multiple computers?</b></summary>
+
+Each license is bound to one physical device via hardware fingerprinting. To switch devices, request a free device reset from support.
+</details>
+
+<details>
+<summary><b>What happens when my 90-day plan expires?</b></summary>
+
+The app will prompt you to renew. Your settings and cache are preserved. You can upgrade to Lifetime at any time.
+</details>
+
+<details>
+<summary><b>Do you store my API keys or AI conversations?</b></summary>
+
+No. All API keys are stored locally on your device with hardware-bound encryption. AI requests go directly from your machine to your chosen provider. We never see your keys or your queries.
+</details>
+
+<details>
+<summary><b>Which languages are supported?</b></summary>
+
+ViTai works with any language supported by your chosen AI provider. The UI is available in Vietnamese and English.
+</details>
+
+---
+
+## Security
+
+ViTai v3.4.0 includes enterprise-grade account protection:
+
+- **Multi-layer device fingerprinting** — MAC address + OS Machine ID + CPU signature + architecture hash
+- **PBKDF2-HMAC-SHA256** password hashing (100,000 iterations)
+- **Anti-bruteforce lockout** — 5 failed attempts trigger a 5-minute temporary block
+- **Transaction ledger** — prevents payment replay attacks (reusing bank transfer references)
+- **Hardware-bound token encryption** — OAuth tokens are encrypted to your device; copying `tokens.json` to another machine renders it unreadable
+
+---
+
+## Tech Stack
+
+- **Language:** Python 3.12+
+- **GUI Framework:** PyQt6 (cross-platform native)
+- **AI Integration:** Direct REST API calls via `urllib.request` (zero external HTTP dependencies)
+- **Packaging:** PyInstaller (single-folder portable distribution)
+- **Cloud Sync:** Supabase PostgREST (optional, hybrid offline/online)
+
+---
+
+## Support & Contact
+
+- **GitHub Issues:** [Report a bug](https://github.com/namtacozz/ViTai/issues)
+- **Facebook:** [ViTai Community](https://facebook.com)
+
+---
+
+## License
+
+ViTai is **proprietary software**. The source code is not publicly available.
+Binary releases are distributed under a commercial license.
+Unauthorized redistribution, reverse engineering, or modification is prohibited.
+
+Developed by **ViTai Team**.
+
