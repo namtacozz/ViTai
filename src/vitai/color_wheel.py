@@ -100,24 +100,34 @@ class QColorWheelWidget(QWidget):
         img.fill(Qt.GlobalColor.transparent)
 
         radius = size / 2.0
-        center = radius
+        center = QPointF(radius, radius)
 
-        # Render đĩa màu tròn từng pixel để gradient mượt mà tuyệt đối
-        for y in range(size):
-            dy = y - center
-            for x in range(size):
-                dx = x - center
-                dist = math.hypot(dx, dy)
-                if dist <= radius:
-                    angle_rad = math.atan2(dy, dx)
-                    angle_deg = math.degrees(angle_rad)
-                    if angle_deg < 0:
-                        angle_deg += 360.0
+        p = QPainter(img)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-                    sat = min(1.0, dist / radius)
-                    # Phối màu HSV
-                    c = QColor.fromHsvF(angle_deg / 360.0, sat, self._val)
-                    img.setPixelColor(x, y, c)
+        # 1. Vẽ Hue bằng Conical Gradient siêu tốc native C++
+        conical = QConicalGradient(center, 0.0)
+        steps = 24
+        for i in range(steps + 1):
+            pos = i / steps
+            hue_angle = i * (360.0 / steps)
+            color = QColor.fromHsvF(hue_angle / 360.0, 1.0, self._val)
+            conical.setColorAt(pos, color)
+
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(conical))
+        p.drawEllipse(center, radius, radius)
+
+        # 2. Phủ Saturation bằng Radial Gradient (tâm hòa sắc bão hòa 0%)
+        radial = QRadialGradient(center, radius)
+        center_color = QColor.fromHsvF(0.0, 0.0, self._val, 1.0)
+        edge_color = QColor.fromHsvF(0.0, 0.0, self._val, 0.0)
+        radial.setColorAt(0.0, center_color)
+        radial.setColorAt(1.0, edge_color)
+
+        p.setBrush(QBrush(radial))
+        p.drawEllipse(center, radius, radius)
+        p.end()
 
         return img
 

@@ -4,9 +4,12 @@ import json
 import logging
 import random
 import re
+import time
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, Optional
+
+from vitai.transaction_ledger import get_transaction_ledger
 
 _log = logging.getLogger("vitai.sepay")
 
@@ -14,13 +17,20 @@ DEFAULT_SEPAY_TOKEN = "OXH81WY1GJ23KVBZZJJRMZNESOBAPCL4BA4KU6FDWQLOD5HMDKIASAP8W
 DEFAULT_BANK_ID = "MB"
 DEFAULT_BANK_ACC = "99924052005"
 DEFAULT_BANK_NAME = "LE VO THANH NAM"
-DEFAULT_REGISTRATION_PRICE = 50000
+
+# Các mức giá bản quyền ViTai
+PRICE_90_DAYS = 50000       # Gói 90 ngày: 50.000 VNĐ
+PRICE_LIFETIME = 300000     # Gói Vĩnh viễn: 300.000 VNĐ
+DEFAULT_REGISTRATION_PRICE = PRICE_90_DAYS
+
+_last_sepay_call_time: float = 0.0
+_CALL_COOLDOWN_SECONDS: float = 1.0  # Tối thiểu 1 giây giữa các request để bảo vệ rate-limit
 
 
-def generate_order_code() -> str:
-    """Tạo mã nội dung chuyển khoản duy nhất dạng VITAI + 6 số ngẫu nhiên."""
+def generate_order_code(prefix: str = "VITAI") -> str:
+    """Tạo mã nội dung chuyển khoản duy nhất dạng VITAI + 6 số ngẫu nhiên (độ dài 11 ký tự)."""
     rand_num = random.randint(100000, 999999)
-    return f"VITAI{rand_num}"
+    return f"{prefix}{rand_num}"
 
 
 def get_vietqr_url(
@@ -47,16 +57,25 @@ def check_sepay_payment(
 ) -> tuple[bool, str, dict[str, Any] | None]:
     """
     Kiểm tra xem mã giao dịch order_code đã có tiền vào tài khoản thông qua SePay API hay chưa.
+    Tích hợp bảo vệ chống Replay Attack (không chấp nhận giao dịch đã từng kích hoạt).
     
     Returns:
         (is_paid, message, transaction_data)
     """
+    global _last_sepay_call_time
     if not api_token:
         return False, "Chưa cấu hình SePay API Token", None
 
     clean_code = re.sub(r"[^A-Za-z0-9]", "", order_code).upper()
     if not clean_code:
         return False, "Mã giao dịch không hợp lệ", None
+
+    # Throttling bảo vệ API limit
+    now = time.time()
+    elapsed = now - _last_sepay_call_time
+    if elapsed < _CALL_COOLDOWN_SECONDS:
+        time.sleep(_CALL_COOLDOWN_SECONDS - elapsed)
+    _last_sepay_call_time = time.time()
 
     url = "https://my.sepay.vn/userapi/transactions/list?limit=20"
     req = urllib.request.Request(
@@ -73,10 +92,12 @@ def check_sepay_payment(
         with safe_urlopen(req, timeout=timeout) as resp:
             if resp.status != 200:
                 return False, f"SePay API trả về mã lỗi HTTP {resp.status}", None
-            
+
             body = resp.read().decode("utf-8")
             data = json.loads(body)
             transactions = data.get("transactions", [])
+
+            ledger = get_transaction_ledger()
 
             for tx in transactions:
                 # Kiểm tra số tiền vào (amount_in)
@@ -88,12 +109,19 @@ def check_sepay_payment(
                 if amount_in < expected_amount:
                     continue
 
-                # Kiểm tra nội dung chuyển khoản
+                ref_number = str(tx.get("reference_number", "")).strip()
+
+                # Anti-Replay: Nếu giao dịch này đã từng được sử dụng để kích hoạt tài khoản
+                if ref_number and ledger.is_consumed(ref_number):
+                    _log.warning(f"[SEPAY] Giao dịch '{ref_number}' đã được kích hoạt trước đó. Bỏ qua.")
+                    continue
+
+                # Kiểm tra nội dung chuyển khoản chính xác
                 content = str(tx.get("transaction_content", "")).upper()
                 clean_content = re.sub(r"[^A-Za-z0-9]", "", content)
 
                 if clean_code in clean_content:
-                    _log.info(f"[SEPAY] Khớp thanh toán thành công cho mã {order_code}: {tx.get('reference_number')}")
+                    _log.info(f"[SEPAY] Khớp thanh toán thành công cho mã {order_code}: {ref_number}")
                     return True, "Thanh toán thành công!", tx
 
             return False, "Chưa nhận được giao dịch chuyển khoản khớp nội dung", None

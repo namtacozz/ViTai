@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# pyright: reportMissingModuleSource=false
+
 import ctypes
 import logging
 import os
@@ -8,9 +10,10 @@ import threading
 import traceback
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 try:
-    from pynput import mouse
+    from pynput import mouse  # type: ignore
 except Exception:
     mouse = None  # type: ignore
 from PyQt6.QtCore import QEvent, QObject, pyqtSignal
@@ -68,10 +71,10 @@ def set_windows_app_id() -> None:
 class ViTaiQApplication(QApplication):
     reopen_requested = pyqtSignal()
 
-    def event(self, e: QEvent) -> bool:
-        if e.type() in (QEvent.Type.ApplicationActivate, QEvent.Type.FileOpen):
+    def event(self, a0: QEvent | None) -> bool:
+        if a0 is not None and a0.type() in (QEvent.Type.ApplicationActivate, QEvent.Type.FileOpen):
             self.reopen_requested.emit()
-        return super().event(e)
+        return super().event(a0) if a0 is not None else False
 
 
 class UiBridge(QObject):
@@ -79,6 +82,7 @@ class UiBridge(QObject):
     menu_hotkey_pressed = pyqtSignal()
     answer_ready = pyqtSignal(str)
     hide_overlay_if_outside_ready = pyqtSignal(int, int)
+    show_settings_requested = pyqtSignal()
 
 
 class ViTaiApp:
@@ -104,19 +108,25 @@ class ViTaiApp:
         if sys.platform.startswith("linux") and "QT_QPA_PLATFORM" not in os.environ:
             os.environ["QT_QPA_PLATFORM"] = "xcb"
 
-        self.qt_app = ViTaiQApplication(sys.argv)
+        existing_app = QApplication.instance()
+        if existing_app is not None and isinstance(existing_app, QApplication):
+            self.qt_app = existing_app
+        else:
+            self.qt_app = ViTaiQApplication(sys.argv)
         self.qt_app.setApplicationName("Vì Người Tài")
         self.qt_app.setApplicationDisplayName("Vì Người Tài")
         self.qt_app.setDesktopFileName("vitai")
         self.qt_app.setWindowIcon(QIcon(str(resource_path("assets/icon.ico"))))
         self.qt_app.setQuitOnLastWindowClosed(False)
-        self.qt_app.reopen_requested.connect(self.show_settings)
+        if isinstance(self.qt_app, ViTaiQApplication):
+            self.qt_app.reopen_requested.connect(self.show_settings)
 
         self.bridge = UiBridge()
         self.bridge.hotkey_pressed.connect(self.handle_hotkey)
         self.bridge.menu_hotkey_pressed.connect(self.show_settings)
         self.bridge.answer_ready.connect(self.show_answer)
         self.bridge.hide_overlay_if_outside_ready.connect(self.hide_overlay_if_outside)
+        self.bridge.show_settings_requested.connect(self.show_settings)
 
         from vitai.user_store import get_current_session, get_user_store
         self.user_store = get_user_store()
@@ -127,7 +137,7 @@ class ViTaiApp:
         self.mouse_press_pos: tuple[int, int] | None = None
         self.text_cache: dict[str, str] = {}
         self.selection_anchor: tuple[int, int] | None = None
-        self.mouse_listener: mouse.Listener | None = None
+        self.mouse_listener: Any = None
 
         # 1. Hotkey Answer Trigger (Mặc định: Alt + Q)
         self.hotkey_manager = HotkeyManager(
@@ -212,32 +222,22 @@ class ViTaiApp:
 
     def _load_config_with_env(self) -> AppConfig:
         config = load_config(self.config_path)
-
         provider = os.getenv("PROVIDER", config.provider).strip().lower()
-        if provider == "anthropic":
-            api_key = os.getenv("ANTHROPIC_API_KEY", config.api_key).strip()
-            base_url = os.getenv("ANTHROPIC_BASE_URL", config.base_url).strip()
-            model = os.getenv("ANTHROPIC_MODEL", "").strip() or config.model
-        elif provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY", config.api_key).strip()
-            base_url = os.getenv("OPENAI_BASE_URL", config.base_url or "https://chatgpt.com/backend-api/codex").strip()
-            model = os.getenv("OPENAI_MODEL", "").strip() or config.model or "cx/gpt-5.5"
-        elif provider == "gemini":
-            api_key = os.getenv("GEMINI_API_KEY", config.api_key).strip()
-            base_url = os.getenv("GEMINI_BASE_URL", config.base_url or "https://generativelanguage.googleapis.com/v1beta").strip()
-            model = os.getenv("GEMINI_MODEL", "").strip() or config.model or "gemini-2.5-flash"
-        elif provider == "deepseek":
-            api_key = os.getenv("DEEPSEEK_API_KEY", config.api_key).strip()
-            base_url = os.getenv("DEEPSEEK_BASE_URL", config.base_url or "https://api.deepseek.com/v1").strip()
-            model = os.getenv("DEEPSEEK_MODEL", "").strip() or config.model or "deepseek-chat"
-        elif provider == "kiro":
-            api_key = os.getenv("KIRO_API_KEY", config.api_key).strip()
-            base_url = os.getenv("KIRO_BASE_URL", config.base_url or "https://app.kiro.ai/v1").strip()
-            model = os.getenv("KIRO_MODEL", "").strip() or config.model or "kr/claude-sonnet-4.5"
-        elif provider == "9router":
-            api_key = os.getenv("NINEROUTER_API_KEY", config.api_key).strip()
-            base_url = os.getenv("NINEROUTER_BASE_URL", config.base_url or "http://localhost:20128/v1").strip()
-            model = os.getenv("NINEROUTER_MODEL", "").strip() or config.model or "High"
+
+        provider_env_map = {
+            "anthropic": ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "", ""),
+            "openai": ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", "https://chatgpt.com/backend-api/codex", "cx/gpt-5.5"),
+            "gemini": ("GEMINI_API_KEY", "GEMINI_BASE_URL", "GEMINI_MODEL", "https://generativelanguage.googleapis.com/v1beta", "gemini-2.5-flash"),
+            "deepseek": ("DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL", "https://api.deepseek.com/v1", "deepseek-chat"),
+            "kiro": ("KIRO_API_KEY", "KIRO_BASE_URL", "KIRO_MODEL", "https://app.kiro.ai/v1", "kr/claude-sonnet-4.5"),
+            "9router": ("NINEROUTER_API_KEY", "NINEROUTER_BASE_URL", "NINEROUTER_MODEL", "http://localhost:20128/v1", "High"),
+        }
+
+        if provider in provider_env_map:
+            k_env, u_env, m_env, def_url, def_model = provider_env_map[provider]
+            api_key = os.getenv(k_env, config.api_key).strip()
+            base_url = os.getenv(u_env, config.base_url or def_url).strip()
+            model = os.getenv(m_env, "").strip() or config.model or def_model
         else:
             api_key = config.api_key
             base_url = config.base_url
@@ -333,22 +333,25 @@ class ViTaiApp:
         current_user = get_current_session(self.user_store)
         if current_user is None:
             self.logger.warning("[MAIN] 🔒 Ứng dụng đang bị khóa. Yêu cầu đăng nhập trước khi sử dụng!")
-            self.show_settings()
+            self.bridge.show_settings_requested.emit()
             return
         threading.Thread(target=self._process_selection, daemon=True).start()
 
-    def _is_hotkey_mouse_button(self, button: mouse.Button | None) -> bool:
-        if not self.config.hotkey_key.startswith("mouse_"):
+    def _is_hotkey_mouse_button(self, button: Any) -> bool:
+        if not self.config.hotkey_key.startswith("mouse_") or mouse is None or button is None:
             return False
-        if button == mouse.Button.right and self.config.hotkey_key == "mouse_right":
+        mouse_btn = getattr(mouse, "Button", None)
+        if mouse_btn is None:
+            return False
+        if button == mouse_btn.right and self.config.hotkey_key == "mouse_right":
             return True
-        if button == mouse.Button.middle and self.config.hotkey_key == "mouse_middle":
+        if button == mouse_btn.middle and self.config.hotkey_key == "mouse_middle":
             return True
-        if button == mouse.Button.left and self.config.hotkey_key == "mouse_left":
+        if button == mouse_btn.left and self.config.hotkey_key == "mouse_left":
             return True
-        if button == getattr(mouse.Button, "x1", None) and self.config.hotkey_key in ("mouse_x1", "mouse_side"):
+        if button == getattr(mouse_btn, "x1", None) and self.config.hotkey_key in ("mouse_x1", "mouse_side"):
             return True
-        if button == getattr(mouse.Button, "x2", None) and self.config.hotkey_key in ("mouse_x2", "mouse_extra"):
+        if button == getattr(mouse_btn, "x2", None) and self.config.hotkey_key in ("mouse_x2", "mouse_extra"):
             return True
         return False
 
@@ -359,14 +362,15 @@ class ViTaiApp:
         else:
             self.selection_anchor = (x, y)
 
-    def _on_mouse_click(self, x: int, y: int, button: mouse.Button, pressed: bool) -> None:
+    def _on_mouse_click(self, x: int, y: int, button: Any, pressed: bool) -> None:
+        mouse_btn = getattr(mouse, "Button", None) if mouse is not None else None
         if pressed:
             if not self._is_hotkey_mouse_button(button):
                 self.bridge.hide_overlay_if_outside_ready.emit(x, y)
-            if button == mouse.Button.left:
+            if mouse_btn is not None and button == mouse_btn.left:
                 self.mouse_press_pos = (x, y)
             return
-        if button != mouse.Button.left:
+        if mouse_btn is not None and button != mouse_btn.left:
             return
         # Luôn ghi nhận vị trí nhả chuột trái là đuôi của vùng văn bản vừa bôi đen
         self.selection_anchor = (x, y)
@@ -466,8 +470,11 @@ class ViTaiApp:
         self.hotkey_manager.start()
         self.menu_hotkey_manager.start()
         if mouse is not None:
-            self.mouse_listener = mouse.Listener(on_click=self._on_mouse_click)
-            self.mouse_listener.start()
+            listener_cls = getattr(mouse, "Listener", None)
+            if listener_cls is not None:
+                self.mouse_listener = listener_cls(on_click=self._on_mouse_click)
+                if self.mouse_listener is not None and hasattr(self.mouse_listener, "start"):
+                    self.mouse_listener.start()
         return self.qt_app.exec()
 
     def quit(self) -> None:
@@ -477,7 +484,7 @@ class ViTaiApp:
         self.ipc_server.stop()
         self.hotkey_manager.stop()
         self.menu_hotkey_manager.stop()
-        if self.mouse_listener is not None:
+        if self.mouse_listener is not None and hasattr(self.mouse_listener, "stop"):
             self.mouse_listener.stop()
         self.qt_app.quit()
 

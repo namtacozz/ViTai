@@ -29,6 +29,35 @@ class OAuthToken:
         return time.time() >= (self.expires_at - buffer_seconds)
 
 
+import base64
+from vitai.device_fingerprint import get_device_fingerprint
+
+
+def _obfuscate_token_data(raw_text: str) -> str:
+    """Mã hóa chuỗi token gắn chặt với vân tay phần cứng máy tính (Hardware-bound encryption)."""
+    key = get_device_fingerprint()
+    k_bytes = key.encode("utf-8")
+    t_bytes = raw_text.encode("utf-8")
+    xored = bytes(b ^ k_bytes[i % len(k_bytes)] for i, b in enumerate(t_bytes))
+    return "__VITAI_SEC__:" + base64.b64encode(xored).decode("ascii")
+
+
+def _deobfuscate_token_data(encoded: str) -> str:
+    """Giải mã chuỗi token bằng vân tay phần cứng hiện tại."""
+    if not encoded.startswith("__VITAI_SEC__:"):
+        return encoded  # Tương thích ngược với file tokens.json chưa mã hóa
+    try:
+        raw_b64 = encoded[len("__VITAI_SEC__:"):]
+        xored = base64.b64decode(raw_b64)
+        key = get_device_fingerprint()
+        k_bytes = key.encode("utf-8")
+        t_bytes = bytes(b ^ k_bytes[i % len(k_bytes)] for i, b in enumerate(xored))
+        return t_bytes.decode("utf-8")
+    except Exception as e:
+        _log.error(f"[TOKEN_STORE] Không thể giải mã tokens (thiết bị không khớp hoặc dữ liệu lỗi): {e}")
+        return "{}"
+
+
 class TokenStore:
     def __init__(self, store_path: Path | None = None):
         self.store_path = store_path or (Path.home() / ".vitai" / "tokens.json")
@@ -39,7 +68,9 @@ class TokenStore:
         if not self.store_path.exists():
             return
         try:
-            raw = json.loads(self.store_path.read_text(encoding="utf-8"))
+            file_content = self.store_path.read_text(encoding="utf-8").strip()
+            decrypted = _deobfuscate_token_data(file_content)
+            raw = json.loads(decrypted)
             for provider, data in raw.items():
                 if isinstance(data, dict) and "access_token" in data:
                     self._tokens[provider] = OAuthToken(
@@ -60,7 +91,9 @@ class TokenStore:
         try:
             self.store_path.parent.mkdir(parents=True, exist_ok=True)
             data = {p: asdict(t) for p, t in self._tokens.items()}
-            self.store_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            raw_json = json.dumps(data, indent=2, ensure_ascii=False)
+            encrypted = _obfuscate_token_data(raw_json)
+            self.store_path.write_text(encrypted, encoding="utf-8")
         except Exception as e:
             _log.error(f"Failed to save tokens to {self.store_path}: {e}")
 

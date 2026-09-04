@@ -5,6 +5,7 @@ import json
 import os
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -14,29 +15,43 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-
-def get_mac_address() -> str:
-    """Lấy địa chỉ MAC card mạng thực tế của máy tính."""
-    try:
-        mac_num = uuid.getnode()
-        mac_hex = f"{mac_num:012x}"
-        return ":".join(mac_hex[i:i+2] for i in range(0, 12, 2)).upper()
-    except Exception:
-        return "UNKNOWN_MAC"
+from vitai.device_fingerprint import get_device_fingerprint, get_mac_address
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
-    """Tạo salt và băm mật khẩu bằng SHA-256 kèm salt. Trả về (salt, hash)."""
+    """Tạo salt và băm mật khẩu bằng PBKDF2-HMAC-SHA256 (100.000 vòng lặp). Trả về (salt, hash)."""
     if not salt:
         salt = secrets.token_hex(16)
-    hashed = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    hashed = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations=100_000,
+    ).hex()
     return salt, hashed
 
 
 def verify_password(password: str, salt: str, password_hash: str) -> bool:
-    """Xác thực mật khẩu người dùng."""
-    hashed = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-    return secrets.compare_digest(hashed, password_hash)
+    """Xác thực mật khẩu người dùng (hỗ trợ cả chuẩn mới PBKDF2 và fallback SHA-256 cũ)."""
+    if not password or not salt or not password_hash:
+        return False
+
+    # 1. Thử xác thực với PBKDF2-HMAC-SHA256 mới
+    pbkdf2_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations=100_000,
+    ).hex()
+    if secrets.compare_digest(pbkdf2_hash, password_hash):
+        return True
+
+    # 2. Fallback kiểm tra SHA-256 cũ cho các tài khoản tạo trước đó
+    legacy_hash = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    if secrets.compare_digest(legacy_hash, password_hash):
+        return True
+
+    return False
 
 
 @dataclass
@@ -49,11 +64,16 @@ class User:
     created_at: str = ""
     is_active: bool = True
     password_plain: str = ""  # Mật khẩu dạng rõ phục vụ Quản Trị Viên
+    subscription_type: str = "lifetime"  # "90d" hoặc "lifetime"
+    subscription_expires: str = ""  # YYYY-MM-DD, rỗng = vĩnh viễn
 
     def to_dict(self, for_cloud: bool = False) -> dict:
         d = asdict(self)
         if for_cloud:
             d.pop("password_plain", None)
+            # Không gửi các trường mở rộng nếu Supabase Cloud chưa cấu hình cột
+            d.pop("subscription_type", None)
+            d.pop("subscription_expires", None)
         return d
 
     @classmethod
@@ -71,6 +91,8 @@ class User:
             created_at=data.get("created_at", ""),
             is_active=data.get("is_active", True),
             password_plain=p_plain,
+            subscription_type=data.get("subscription_type", "lifetime"),
+            subscription_expires=data.get("subscription_expires", ""),
         )
 
 
@@ -316,6 +338,7 @@ class UserStore:
         self.cloud_config = cloud_config if cloud_config is not None else load_cloud_config()
         self.cloud_client = CloudAuthClient(self.cloud_config)
         self._users: dict[str, User] = {}
+        self._failed_attempts: dict[str, tuple[int, float]] = {}  # Anti-bruteforce: username -> (count, timestamp)
         self._load()
 
     def set_cloud_config(self, cfg: CloudConfig) -> None:
@@ -363,6 +386,20 @@ class UserStore:
         """Xác thực đăng nhập và kiểm tra ràng buộc địa chỉ MAC (Đồng bộ Cloud Online)."""
         u_key = username.strip().lower()
 
+        # 0. Anti-Bruteforce: Kiểm tra khóa tạm nếu nhập sai quá 5 lần
+        now = time.time()
+        if u_key in self._failed_attempts:
+            fails, lock_time = self._failed_attempts[u_key]
+            if fails >= 5 and (now - lock_time) < 300:
+                remaining = int(300 - (now - lock_time))
+                return (
+                    False,
+                    None,
+                    f"Tài khoản bị tạm khóa do nhập sai mật khẩu 5 lần liên tiếp. Vui lòng thử lại sau {remaining} giây.",
+                )
+            elif (now - lock_time) >= 300:
+                del self._failed_attempts[u_key]
+
         # 1. Nếu có Cloud Sync bật, ưu tiên lấy dữ liệu mới nhất từ Cloud
         if self.cloud_config.is_enabled:
             ok, cloud_user, _ = self.cloud_client.get_user(u_key)
@@ -378,7 +415,32 @@ class UserStore:
             return False, None, "Tài khoản này hiện đang bị tạm khóa. Vui lòng liên hệ Admin."
 
         if not verify_password(password, user.salt, user.password_hash):
+            fails = self._failed_attempts.get(u_key, (0, now))[0] + 1
+            self._failed_attempts[u_key] = (fails, now)
             return False, None, "Mật khẩu không chính xác."
+
+        # Đăng nhập thành công -> Reset bộ đếm lỗi
+        self._failed_attempts.pop(u_key, None)
+
+        # Nâng cấp tự động mật khẩu SHA-256 legacy sang PBKDF2
+        legacy_hash = hashlib.sha256((user.salt + password).encode("utf-8")).hexdigest()
+        if user.password_hash == legacy_hash:
+            new_salt, new_hash = hash_password(password)
+            user.salt = new_salt
+            user.password_hash = new_hash
+            self._save()
+            if self.cloud_config.is_enabled:
+                self.cloud_client.update_fields(u_key, {"password_hash": new_hash, "salt": new_salt})
+
+        # Kiểm tra hạn bản quyền nếu không phải Admin
+        if user.role != "admin" and user.subscription_expires:
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            if user.subscription_expires < today_str:
+                return (
+                    False,
+                    None,
+                    f"Tài khoản đã hết hạn bản quyền vào ngày {user.subscription_expires}. Vui lòng gia hạn để tiếp tục sử dụng.",
+                )
 
         # Lưu mật khẩu rõ vào cấu hình cục bộ để Admin theo dõi
         if not user.password_plain:
@@ -411,7 +473,14 @@ class UserStore:
 
         return True, user, "Đăng nhập thành công!"
 
-    def create_user(self, username: str, password: str, role: str = "user") -> tuple[bool, str]:
+    def create_user(
+        self,
+        username: str,
+        password: str,
+        role: str = "user",
+        subscription_type: str = "lifetime",
+        subscription_expires: str = "",
+    ) -> tuple[bool, str]:
         u_key = username.strip().lower()
         if not u_key:
             return False, "Tên tài khoản không được để trống."
@@ -430,6 +499,8 @@ class UserStore:
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             is_active=True,
             password_plain=password,
+            subscription_type=subscription_type,
+            subscription_expires=subscription_expires,
         )
         self._users[u_key] = new_user
         self._save()
@@ -441,6 +512,29 @@ class UserStore:
                 return True, f"Đã tạo tài khoản cục bộ (Lưu ý Cloud: {msg_cloud})"
 
         return True, f"Đã tạo thành công tài khoản '{username}'."
+
+    def renew_subscription(self, username: str, duration_days: int) -> tuple[bool, str]:
+        """Gia hạn gói đăng ký cho tài khoản."""
+        u_key = username.strip().lower()
+        if u_key not in self._users:
+            return False, "Tài khoản không tồn tại."
+        u = self._users[u_key]
+        today = datetime.now()
+        if u.subscription_expires:
+            try:
+                curr_exp = datetime.strptime(u.subscription_expires, "%Y-%m-%d")
+                base = curr_exp if curr_exp > today else today
+            except Exception:
+                base = today
+        else:
+            base = today
+
+        from datetime import timedelta
+        new_exp = (base + timedelta(days=duration_days)).strftime("%Y-%m-%d")
+        u.subscription_expires = new_exp
+        u.subscription_type = f"{duration_days}d"
+        self._save()
+        return True, f"Đã gia hạn tài khoản '{username}' đến ngày {new_exp}."
 
     def update_password(self, username: str, new_password: str) -> tuple[bool, str]:
         u_key = username.strip().lower()
