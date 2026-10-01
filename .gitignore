@@ -18,3 +18,5 @@ build_proxy/
 *.env*
 *.md
 !README.md
+*.zip
+*.tar.gz
